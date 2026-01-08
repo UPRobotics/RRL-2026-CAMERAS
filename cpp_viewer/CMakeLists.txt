@@ -78,23 +78,14 @@ find_package(spdlog CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
 # Optional: Concurrentqueue for lock-free queues
-find_path(CONCURRENTQUEUE_INCLUDE_DIRS "concurrentqueue/concurrentqueue.h")
-find_path(READERWRITERQUEUE_INCLUDE_DIRS "concurrentqueue/readerwriterqueue.h")
+find_package(concurrentqueue CONFIG QUIET)
 
 # Source files
 set(SOURCES
     src/main.cpp
-    src/rtsp_camera.cpp
-    src/display_manager.cpp
-    src/config.cpp
-    src/utils.cpp
 )
 
 set(HEADERS
-    include/rtsp_camera.h
-    include/display_manager.h
-    include/config.h
-    include/utils.h
     include/types.h
 )
 
@@ -104,8 +95,6 @@ add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CONCURRENTQUEUE_INCLUDE_DIRS}
-    ${READERWRITERQUEUE_INCLUDE_DIRS}
 )
 
 # Link libraries
@@ -116,6 +105,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     spdlog::spdlog
     nlohmann_json::nlohmann_json
 )
+
+# Optionally link concurrentqueue if found
+if(concurrentqueue_FOUND)
+    target_link_libraries(${PROJECT_NAME} PRIVATE concurrentqueue::concurrentqueue)
+    message(STATUS "ConcurrentQueue: Found")
+endif()
 
 # Windows-specific settings
 if(WIN32)
@@ -151,8 +146,5 @@ message(STATUS "FFmpeg found: ${LIBAV_FOUND}")
 message(STATUS "SDL2 found: ${SDL2_FOUND}")
 message(STATUS "spdlog found: ${spdlog_FOUND}")
 message(STATUS "nlohmann_json found: ${nlohmann_json_FOUND}")
-if(CONCURRENTQUEUE_INCLUDE_DIRS)
-    message(STATUS "ConcurrentQueue: ${CONCURRENTQUEUE_INCLUDE_DIRS}")
-endif()
 message(STATUS "=====================================")
 message(STATUS "")
