@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "rtsp-camera-viewer",
+  "version": "1.0.0",
+  "description": "Ultra-low latency RTSP multi-camera viewer",
+  "homepage": "https://github.com/yourusername/RRL-2026-CAMERAS",
+  "license": "MIT",
+  "dependencies": [
+    {
+      "name": "ffmpeg",
+      "version>=": "6.0.0",
+      "default-features": false,
+      "features": [
+        "avcodec",
+        "avformat",
+        "avutil",
+        "swscale",
+        "swresample"
+      ]
+    },
+    {
+      "name": "sdl2",
+      "version>=": "2.28.0"
+    },
+    {
+      "name": "spdlog",
+      "version>=": "1.12.0"
+    },
+    {
+      "name": "nlohmann-json",
+      "version>=": "3.11.2"
+    },
+    {
+      "name": "concurrentqueue",
+      "version>=": "1.0.4"
+    }
+  ],
+  "builtin-baseline": "c8696863d371ab7f46545af4286ead8fc07bbd5f"
+}
