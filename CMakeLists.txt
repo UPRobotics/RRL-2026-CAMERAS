@@ -88,6 +88,8 @@ set(SOURCES
     src/main.cpp
     src/main_window.cpp
     src/console_window.cpp
+    src/console_sink.cpp
+    src/settings_manager.cpp
     src/stats_panel.cpp
     src/camera_grid.cpp
     src/ui_helpers.cpp
@@ -97,6 +99,8 @@ set(HEADERS
     include/types.h
     include/main_window.h
     include/console_window.h
+    include/console_sink.h
+    include/settings_manager.h
     include/stats_panel.h
     include/camera_grid.h
     include/ui_helpers.h
@@ -147,7 +151,8 @@ install(TARGETS ${PROJECT_NAME}
 
 install(FILES 
     ${CMAKE_CURRENT_SOURCE_DIR}/config/config.ini
-    DESTINATION bin
+    ${CMAKE_CURRENT_SOURCE_DIR}/config/settings.json
+    DESTINATION bin/config
 )
 
 # Print configuration summary

@@ -38,6 +38,7 @@ namespace Colors {
     // Console colors
     const SDL_Color CONSOLE_BG = {20, 20, 25, 255};
     const SDL_Color CONSOLE_TEXT = {200, 200, 200, 255};
+    const SDL_Color CONSOLE_DEBUG = {140, 140, 140, 255};
     const SDL_Color CONSOLE_INFO = {100, 160, 210, 255};
     const SDL_Color CONSOLE_WARNING = {241, 196, 15, 255};
     const SDL_Color CONSOLE_ERROR = {231, 76, 60, 255};

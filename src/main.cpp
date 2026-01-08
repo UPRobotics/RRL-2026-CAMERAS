@@ -3,8 +3,8 @@
 #include "main_window.h"
 
 int main(int argc, char* argv[]) {
-    // Set log level
-    spdlog::set_level(spdlog::level::info);
+    // Set log level to trace to capture all messages
+    spdlog::set_level(spdlog::level::trace);
     
     spdlog::info("=== C++ RTSP Camera Viewer ===");
     spdlog::info("Starting application...");

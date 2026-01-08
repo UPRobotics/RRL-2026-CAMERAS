@@ -1,9 +1,12 @@
 #include "main_window.h"
 #include "console_window.h"
+#include "console_sink.h"
 #include "stats_panel.h"
 #include "camera_grid.h"
 #include "ui_helpers.h"
+#include "settings_manager.h"
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
 namespace camera_viewer {
 
@@ -17,6 +20,7 @@ MainWindow::MainWindow(const std::string& title, int width, int height)
     , m_renderer(nullptr)
     , m_currentViewMode(ViewMode::GRID_NXN)
     , m_consolVisible(false)
+    , m_isFullscreen(false)
     , m_activeCameraCount(4)
     , m_mainAreaY(TOOLBAR_HEIGHT)
     , m_mainAreaHeight(height - TOOLBAR_HEIGHT - STATSBAR_HEIGHT)
@@ -33,6 +37,9 @@ bool MainWindow::initialize() {
         return true;
     }
 
+    // Load settings
+    SettingsManager::instance().load();
+
     // Initialize SDL
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         spdlog::error("SDL initialization failed: {}", SDL_GetError());
@@ -46,11 +53,26 @@ bool MainWindow::initialize() {
         return false;
     }
 
+    // Get window position and size from settings
+    auto& settings = SettingsManager::instance();
+    int windowX = SDL_WINDOWPOS_CENTERED;
+    int windowY = SDL_WINDOWPOS_CENTERED;
+    
+    if (settings.shouldRememberWindowPosition() && settings.getLastWindowX() >= 0) {
+        windowX = settings.getLastWindowX();
+        windowY = settings.getLastWindowY();
+    }
+    
+    if (settings.shouldRememberWindowSize()) {
+        m_windowWidth = settings.getLastWindowWidth();
+        m_windowHeight = settings.getLastWindowHeight();
+    }
+
     // Create window
     m_window = SDL_CreateWindow(
         m_title.c_str(),
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
+        windowX,
+        windowY,
         m_windowWidth,
         m_windowHeight,
         SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
@@ -78,6 +100,15 @@ bool MainWindow::initialize() {
     m_cameraGrid = std::make_unique<CameraGrid>();
     m_cameraGrid->setActiveCameraCount(m_activeCameraCount);
     m_cameraGrid->setViewMode(m_currentViewMode);
+
+    // Set up logging to redirect all messages to console window
+    auto console_sink = std::make_shared<ConsoleSink>(m_consoleWindow.get());
+    auto stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+    
+    auto logger = std::make_shared<spdlog::logger>("multi_sink", 
+        spdlog::sinks_init_list{console_sink, stdout_sink});
+    logger->set_level(spdlog::level::trace); // Capture all log levels
+    spdlog::set_default_logger(logger);
 
     // Setup toolbar buttons
     int buttonX = BUTTON_MARGIN;
@@ -152,6 +183,12 @@ void MainWindow::handleEvents() {
         // Handle console window events if visible
         if (m_consolVisible && m_consoleWindow) {
             m_consoleWindow->handleEvent(event);
+            
+            // Sync console visibility state if it was closed
+            if (!m_consoleWindow->isVisible() && m_consolVisible) {
+                m_consolVisible = false;
+                m_toolbarButtons[3].label = "Show Console";
+            }
         }
 
         switch (event.type) {
@@ -216,41 +253,44 @@ void MainWindow::handleResize(int width, int height) {
 }
 
 void MainWindow::handleKeyPress(SDL_Keycode key) {
-    switch (key) {
-        case SDLK_ESCAPE:
-        case SDLK_q:
-            m_running = false;
-            break;
-        case SDLK_1:
-            onViewModeChanged(ViewMode::FULLSCREEN);
-            break;
-        case SDLK_2:
-            onViewModeChanged(ViewMode::GRID_2X2);
-            break;
-        case SDLK_3:
-            onViewModeChanged(ViewMode::GRID_NXN);
-            break;
-        case SDLK_c:
-            onToggleConsoleClicked();
-            break;
-        case SDLK_LEFT:
-            // Navigate to previous camera in fullscreen mode
-            if (m_currentViewMode == ViewMode::FULLSCREEN && m_activeCameraCount > 0) {
-                int currentIndex = m_cameraGrid->getSelectedCameraIndex();
-                int newIndex = (currentIndex - 1 + m_activeCameraCount) % m_activeCameraCount;
-                m_cameraGrid->setSelectedCameraIndex(newIndex);
-                spdlog::info("Switched to camera {}", newIndex + 1);
-            }
-            break;
-        case SDLK_RIGHT:
-            // Navigate to next camera in fullscreen mode
-            if (m_currentViewMode == ViewMode::FULLSCREEN && m_activeCameraCount > 0) {
-                int currentIndex = m_cameraGrid->getSelectedCameraIndex();
-                int newIndex = (currentIndex + 1) % m_activeCameraCount;
-                m_cameraGrid->setSelectedCameraIndex(newIndex);
-                spdlog::info("Switched to camera {}", newIndex + 1);
-            }
-            break;
+    auto& settings = SettingsManager::instance();
+    
+    // Check keybindings
+    if (settings.isKeyForAction(key, "quit") || settings.isKeyForAction(key, "quit_alt")) {
+        m_running = false;
+    }
+    else if (settings.isKeyForAction(key, "toggle_fullscreen")) {
+        toggleFullscreen();
+    }
+    else if (settings.isKeyForAction(key, "toggle_console")) {
+        onToggleConsoleClicked();
+    }
+    else if (settings.isKeyForAction(key, "view_mode_fullscreen")) {
+        onViewModeChanged(ViewMode::FULLSCREEN);
+    }
+    else if (settings.isKeyForAction(key, "view_mode_2x2")) {
+        onViewModeChanged(ViewMode::GRID_2X2);
+    }
+    else if (settings.isKeyForAction(key, "view_mode_grid")) {
+        onViewModeChanged(ViewMode::GRID_NXN);
+    }
+    else if (settings.isKeyForAction(key, "camera_previous")) {
+        // Navigate to previous camera in fullscreen mode
+        if (m_currentViewMode == ViewMode::FULLSCREEN && m_activeCameraCount > 0) {
+            int currentIndex = m_cameraGrid->getSelectedCameraIndex();
+            int newIndex = (currentIndex - 1 + m_activeCameraCount) % m_activeCameraCount;
+            m_cameraGrid->setSelectedCameraIndex(newIndex);
+            spdlog::info("Switched to camera {}", newIndex + 1);
+        }
+    }
+    else if (settings.isKeyForAction(key, "camera_next")) {
+        // Navigate to next camera in fullscreen mode
+        if (m_currentViewMode == ViewMode::FULLSCREEN && m_activeCameraCount > 0) {
+            int currentIndex = m_cameraGrid->getSelectedCameraIndex();
+            int newIndex = (currentIndex + 1) % m_activeCameraCount;
+            m_cameraGrid->setSelectedCameraIndex(newIndex);
+            spdlog::info("Switched to camera {}", newIndex + 1);
+        }
     }
 }
 
@@ -379,10 +419,37 @@ void MainWindow::onViewModeChanged(ViewMode mode) {
     spdlog::info("View mode changed to: {}", modeStr);
 }
 
+void MainWindow::toggleFullscreen() {
+    m_isFullscreen = !m_isFullscreen;
+    
+    if (m_isFullscreen) {
+        // Enter borderless fullscreen
+        SDL_SetWindowFullscreen(m_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+        spdlog::info("Entered fullscreen mode");
+    } else {
+        // Exit fullscreen
+        SDL_SetWindowFullscreen(m_window, 0);
+        spdlog::info("Exited fullscreen mode");
+    }
+}
+
 void MainWindow::shutdown() {
     if (!m_isInitialized) return;
 
     spdlog::info("Shutting down MainWindow");
+    
+    // Save settings before shutdown
+    auto& settings = SettingsManager::instance();
+    
+    if (!m_isFullscreen) {
+        // Save window position and size (only when not in fullscreen)
+        int x, y;
+        SDL_GetWindowPosition(m_window, &x, &y);
+        settings.setLastWindowPosition(x, y);
+        settings.setLastWindowSize(m_windowWidth, m_windowHeight);
+    }
+    
+    settings.save();
 
     m_consoleWindow.reset();
     m_statsPanel.reset();

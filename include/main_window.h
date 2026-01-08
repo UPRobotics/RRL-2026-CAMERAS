@@ -97,6 +97,7 @@ private:
     void onRestartCamerasClicked();
     void onToggleConsoleClicked();
     void onViewModeChanged(ViewMode mode);
+    void toggleFullscreen();
 
     // Window properties
     std::string m_title;
@@ -119,6 +120,7 @@ private:
     // UI State
     ViewMode m_currentViewMode;
     bool m_consolVisible;
+    bool m_isFullscreen;
     int m_activeCameraCount;
 
     // UI Components

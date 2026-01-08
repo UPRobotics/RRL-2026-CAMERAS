@@ -1,0 +1,30 @@
+{
+  "console": {
+    "auto_open_on_startup": false,
+    "last_console_height": 500,
+    "last_console_width": 800,
+    "last_console_x": 100,
+    "last_console_y": 100,
+    "remember_position": true
+  },
+  "display": {
+    "fullscreen_on_startup": false,
+    "last_window_height": 720,
+    "last_window_width": 1280,
+    "last_window_x": 320,
+    "last_window_y": 180,
+    "remember_window_position": true,
+    "remember_window_size": true
+  },
+  "keybindings": {
+    "camera_next": "Right",
+    "camera_previous": "Left",
+    "quit": "Q",
+    "quit_alt": "Escape",
+    "toggle_console": "C",
+    "toggle_fullscreen": "F",
+    "view_mode_2x2": "2",
+    "view_mode_fullscreen": "1",
+    "view_mode_grid": "3"
+  }
+}
