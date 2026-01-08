@@ -65,8 +65,11 @@ pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
     libswresample
 )
 
-# SDL2
-find_package(SDL2 CONFIG REQUIRED)
+# SDL2 - try CONFIG first, then MODULE
+find_package(SDL2 CONFIG QUIET)
+if(NOT SDL2_FOUND)
+    find_package(SDL2 MODULE REQUIRED)
+endif()
 
 # spdlog for logging
 find_package(spdlog CONFIG REQUIRED)
