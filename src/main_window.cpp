@@ -368,6 +368,26 @@ void MainWindow::renderStatsBar() {
 
 void MainWindow::onStartCamerasClicked() {
     spdlog::info("Start Cameras clicked");
+    
+    // If in debug mode, set up virtual cameras from settings
+    if (m_debugMode) {
+        int virtualCameraCount = SettingsManager::instance().getDebugVirtualCameraCount();
+        std::string rtspUrl = SettingsManager::instance().getDebugRtspUrl();
+        
+        spdlog::info("Debug mode: Creating {} virtual camera(s) from {}", 
+                     virtualCameraCount, rtspUrl);
+        
+        // Set the active camera count
+        m_activeCameraCount = virtualCameraCount;
+        if (m_cameraGrid) {
+            m_cameraGrid->setActiveCameraCount(m_activeCameraCount);
+        }
+        
+        // TODO: In future, actually connect to RTSP streams here
+        // For now, just display the camera slots
+        spdlog::info("Camera slots created. RTSP connection to be implemented.");
+    }
+    
     m_toolbarButtons[0].enabled = false; // Disable Start
     m_toolbarButtons[1].enabled = true;  // Enable Stop
     m_toolbarButtons[2].enabled = true;  // Enable Restart
@@ -375,6 +395,13 @@ void MainWindow::onStartCamerasClicked() {
 
 void MainWindow::onStopCamerasClicked() {
     spdlog::info("Stop Cameras clicked");
+    
+    // Clear active cameras
+    m_activeCameraCount = 0;
+    if (m_cameraGrid) {
+        m_cameraGrid->setActiveCameraCount(0);
+    }
+    
     m_toolbarButtons[0].enabled = true;  // Enable Start
     m_toolbarButtons[1].enabled = false; // Disable Stop
     m_toolbarButtons[2].enabled = false; // Disable Restart
@@ -382,6 +409,10 @@ void MainWindow::onStopCamerasClicked() {
 
 void MainWindow::onRestartCamerasClicked() {
     spdlog::info("Restart Cameras clicked");
+    
+    // Restart is same as stop then start
+    onStopCamerasClicked();
+    onStartCamerasClicked();
 }
 
 void MainWindow::onToggleConsoleClicked() {

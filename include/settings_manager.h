@@ -68,6 +68,14 @@ public:
     void setLastConsolePosition(int x, int y) { m_lastConsoleX = x; m_lastConsoleY = y; }
     void setLastConsoleSize(int width, int height) { m_lastConsoleWidth = width; m_lastConsoleHeight = height; }
     
+    /**
+     * @brief Debug settings
+     */
+    std::string getDebugRtspUrl() const { return m_debugRtspUrl; }
+    int getDebugVirtualCameraCount() const { return m_debugVirtualCameraCount; }
+    void setDebugRtspUrl(const std::string& url) { m_debugRtspUrl = url; }
+    void setDebugVirtualCameraCount(int count) { m_debugVirtualCameraCount = count; }
+    
 private:
     SettingsManager() = default;
     ~SettingsManager() = default;
@@ -96,6 +104,10 @@ private:
     int m_lastConsoleY = 100;
     int m_lastConsoleWidth = 800;
     int m_lastConsoleHeight = 500;
+    
+    // Debug settings
+    std::string m_debugRtspUrl = "rtsp://127.0.0.1:8554/webcam";
+    int m_debugVirtualCameraCount = 1;
 };
 
 } // namespace camera_viewer
