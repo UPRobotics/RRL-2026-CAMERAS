@@ -132,7 +132,7 @@ install(TARGETS ${PROJECT_NAME}
 )
 
 install(FILES 
-    ${CMAKE_CURRENT_SOURCE_DIR}/config.ini
+    ${CMAKE_CURRENT_SOURCE_DIR}/config/config.ini
     DESTINATION bin
 )
 

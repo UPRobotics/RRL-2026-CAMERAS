@@ -1,4 +1,19 @@
-camaras_python/
+# Build directories
+build/
+build-*/
+out/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.ninja
+compile_commands.json
+
+# vcpkg
+vcpkg_installed/
+
 # Prerequisites
 *.d
 
@@ -38,5 +53,25 @@ camaras_python/
 *.out
 *.app
 
-# debug information files
+# Debug information files
 *.dwo
+
+# Visual Studio Code
+.vs/
+.vscode/ipch/
+
+# Python (if still present)
+camaras_python/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# OS specific
+.DS_Store
+Thumbs.db
+*.log
+

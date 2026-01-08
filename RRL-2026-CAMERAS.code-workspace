@@ -1,0 +1,40 @@
+{
+    "folders": [
+        {
+            "name": "RRL-2026-CAMERAS",
+            "path": "."
+        }
+    ],
+    "settings": {
+        "cmake.sourceDirectory": "${workspaceFolder}",
+        "cmake.buildDirectory": "${workspaceFolder}/build",
+        "cmake.configureSettings": {
+            "CMAKE_TOOLCHAIN_FILE": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
+            "CMAKE_BUILD_TYPE": "Release"
+        },
+        "cmake.generator": "NMake Makefiles",
+        "files.associations": {
+            "*.h": "cpp",
+            "*.cpp": "cpp"
+        },
+        "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+        "editor.formatOnSave": true,
+        "editor.rulers": [100, 120],
+        "files.exclude": {
+            "**/build": false,
+            "**/.git": true,
+            "**/.svn": true,
+            "**/.hg": true,
+            "**/CVS": true,
+            "**/.DS_Store": true
+        }
+    },
+    "launch": {
+        "version": "0.2.0",
+        "configurations": []
+    },
+    "tasks": {
+        "version": "2.0.0",
+        "tasks": []
+    }
+}

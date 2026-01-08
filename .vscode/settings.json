@@ -1,3 +1,18 @@
 {
-    "cmake.sourceDirectory": "C:/Users/Chumbi/OneDrive - up.edu.mx/Documents/GitHub/RRL-2026-CAMERAS/cpp_viewer"
+    "cmake.sourceDirectory": "${workspaceFolder}",
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+    "cmake.configureSettings": {
+        "CMAKE_TOOLCHAIN_FILE": "C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "CMAKE_BUILD_TYPE": "Release"
+    },
+    "files.associations": {
+        "*.h": "cpp",
+        "*.cpp": "cpp",
+        "iostream": "cpp",
+        "vector": "cpp",
+        "string": "cpp",
+        "memory": "cpp"
+    },
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "cmake.generator": "NMake Makefiles"
 }

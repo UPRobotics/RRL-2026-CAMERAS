@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch RTSP Camera Viewer",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/RTSPCameraViewer.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "console": "integratedTerminal",
+            "preLaunchTask": "CMake: Build"
+        },
+        {
+            "name": "Debug RTSP Camera Viewer",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/RTSPCameraViewer.exe",
+            "args": [],
+            "stopAtEntry": true,
+            "cwd": "${workspaceFolder}/build",
+            "environment": [],
+            "console": "integratedTerminal",
+            "preLaunchTask": "CMake: Build"
+        }
+    ]
+}
