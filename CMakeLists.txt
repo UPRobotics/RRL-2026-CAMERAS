@@ -71,6 +71,9 @@ if(NOT SDL2_FOUND)
     find_package(SDL2 MODULE REQUIRED)
 endif()
 
+# SDL2_ttf for text rendering
+find_package(SDL2_ttf CONFIG REQUIRED)
+
 # spdlog for logging
 find_package(spdlog CONFIG REQUIRED)
 
@@ -83,10 +86,20 @@ find_package(concurrentqueue CONFIG QUIET)
 # Source files
 set(SOURCES
     src/main.cpp
+    src/main_window.cpp
+    src/console_window.cpp
+    src/stats_panel.cpp
+    src/camera_grid.cpp
+    src/ui_helpers.cpp
 )
 
 set(HEADERS
     include/types.h
+    include/main_window.h
+    include/console_window.h
+    include/stats_panel.h
+    include/camera_grid.h
+    include/ui_helpers.h
 )
 
 # Main executable
@@ -104,6 +117,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     SDL2::SDL2main
     spdlog::spdlog
     nlohmann_json::nlohmann_json
+    $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>
 )
 
 # Optionally link concurrentqueue if found

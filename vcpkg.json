@@ -17,6 +17,7 @@
       ]
     },
     "sdl2",
+    "sdl2-ttf",
     "spdlog",
     "nlohmann-json",
     "concurrentqueue"
