@@ -2,24 +2,8 @@
   "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
   "name": "rtsp-camera-viewer",
   "version": "1.0.0",
-  "description": "Ultra-low latency RTSP multi-camera viewer",
+  "description": "Ultra-low latency RTSP multi-camera viewer for Ubuntu 22.04",
   "homepage": "https://github.com/yourusername/RRL-2026-CAMERAS",
   "license": "MIT",
-  "dependencies": [
-    {
-      "name": "ffmpeg",
-      "default-features": false,
-      "features": [
-        "avcodec",
-        "avformat",
-        "swscale",
-        "swresample"
-      ]
-    },
-    "sdl2",
-    "sdl2-ttf",
-    "spdlog",
-    "nlohmann-json",
-    "concurrentqueue"
-  ]
+  "note": "This project uses system packages on Ubuntu 22.04. Install dependencies with: sudo apt install -y cmake g++ make pkg-config libsdl2-dev libsdl2-ttf-dev libavcodec-dev libavformat-dev libswscale-dev libswresample-dev libspdlog-dev nlohmann-json3-dev libconcurrentqueue-dev"
 }

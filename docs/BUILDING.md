@@ -1,4 +1,4 @@
-# C++ RTSP Camera Viewer
+# Building RTSP Camera Viewer on Ubuntu 22.04
 
 Ultra-low latency RTSP multi-camera viewer written in modern C++20.
 
@@ -7,81 +7,82 @@ Ultra-low latency RTSP multi-camera viewer written in modern C++20.
 ### Prerequisites
 
 **Required:**
-- **Windows 10/11** (64-bit)
-- **Visual Studio 2022** with "Desktop development with C++" workload
-  - Download: https://visualstudio.microsoft.com/downloads/
+- **Ubuntu 22.04 LTS** (64-bit)
+- **GCC 11.4+** or compatible C++20 compiler
 - **CMake 3.25+**
-  - Download: https://cmake.org/download/
 - **Git**
-  - Download: https://git-scm.com/download/win
 
-**Optional (for NVIDIA hardware acceleration):**
-- NVIDIA GPU with driver version 471.11 or later
-- CUDA Toolkit 11.0+ (for NVDEC support)
+**Optional (for hardware acceleration):**
+- NVIDIA GPU with VAAPI support for hardware-accelerated video decoding
+- Mesa drivers for Intel/AMD GPU acceleration
 
 ### Automated Setup (Recommended)
 
-Run the PowerShell setup script:
+The quickest way to build:
 
-```powershell
-# Open PowerShell in the cpp_viewer directory
-cd cpp_viewer
+```bash
+# Clone the repository
+git clone https://github.com/UPRobotics/RRL-2026-CAMERAS.git
+cd RRL-2026-CAMERAS
 
-# If you get execution policy errors, run:
-# Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-
-# Run setup
-.\setup.ps1
+# Run the build script
+./build.sh
 ```
 
 This script will:
-1. ✅ Check for required tools (CMake, Git, Visual Studio)
-2. ✅ Install and configure vcpkg package manager
-3. ✅ Download and compile all dependencies (FFmpeg, SDL2, etc.)
-4. ✅ Configure CMake build system
-5. ✅ Create Visual Studio solution
-
-**Note:** First-time setup downloads and compiles FFmpeg, which can take 15-30 minutes depending on your CPU.
+1. ✅ Check for all required dependencies
+2. ✅ Notify you of any missing packages
+3. ✅ Configure CMake build system
+4. ✅ Compile the application with optimization flags
 
 ### Manual Setup
 
-If you prefer manual setup or the script fails:
+If you prefer manual control or need to customize the build:
 
-#### 1. Install vcpkg
+#### 1. Install System Dependencies
 
-```powershell
-# Clone vcpkg
-cd C:\
-git clone https://github.com/microsoft/vcpkg.git
-cd vcpkg
+All dependencies are available through Ubuntu's package manager:
 
-# Bootstrap vcpkg
-.\bootstrap-vcpkg.bat
-
-# Set environment variable
-setx VCPKG_ROOT "C:\vcpkg"
-
-# Integrate with Visual Studio
-.\vcpkg integrate install
+```bash
+sudo apt update && sudo apt install -y \
+    cmake g++ make pkg-config \
+    libsdl2-dev libsdl2-ttf-dev \
+    libavcodec-dev libavformat-dev libswscale-dev libswresample-dev \
+    libspdlog-dev nlohmann-json3-dev libconcurrentqueue-dev
 ```
 
-#### 2. Install Dependencies
+**Package descriptions:**
+- `cmake` - Build system generator (v4.2.3+)
+- `g++` - GNU C++ compiler with C++20 support
+- `make` - Build automation tool
+- `pkg-config` - Library metadata helper
+- `libsdl2-dev` - Simple DirectMedia Layer for graphics/input
+- `libsdl2-ttf-dev` - TrueType font rendering for SDL2
+- `libavcodec-dev`, `libavformat-dev`, `libswscale-dev`, `libswresample-dev` - FFmpeg libraries for video processing
+- `libspdlog-dev` - Fast C++ logging library
+- `nlohmann-json3-dev` - JSON for Modern C++
+- `libconcurrentqueue-dev` - Lock-free concurrent queue
 
-```powershell
-cd C:\vcpkg
+#### 2. Configure CMake
 
-# Install all required packages (this takes 15-30 minutes)
-.\vcpkg install ffmpeg[core,avcodec,avformat,avutil,swscale,swresample]:x64-windows
-.\vcpkg install sdl2:x64-windows
-.\vcpkg install spdlog:x64-windows
-.\vcpkg install nlohmann-json:x64-windows
-.\vcpkg install concurrentqueue:x64-windows
+```bash
+# Navigate to project directory
+cd RRL-2026-CAMERAS
+
+# Create build directory
+mkdir -p build && cd build
+
+# Configure CMake with Release build type
+cmake -DCMAKE_BUILD_TYPE=Release ..
 ```
 
-#### 3. Configure CMake
+CMake will automatically:
+- Detect your compiler (GCC/Clang)
+- Find all installed dependencies via pkg-config
+- Generate optimized build files with LTO enabled
+- Create compile_commands.json for IDE support
 
-```powershell
-# Navigate to cpp_viewer directory
+#### 3. Build the Application
 cd "C:\Users\Chumbi\OneDrive - up.edu.mx\Documents\GitHub\RRL-2026-CAMERAS\cpp_viewer"
 
 # Create build directory
@@ -96,26 +97,59 @@ cmake .. -G "Visual Studio 17 2022" -A x64
 
 ### Using Visual Studio
 
-1. Open `build/RTSPCameraViewer.sln` in Visual Studio 2022
-2. Select **Release** configuration (important for performance!)
-3. Build → Build Solution (Ctrl+Shift+B)
-4. Executable: `build/Release/RTSPCameraViewer.exe`
+#### 3. Build the Application
 
-### Using Command Line
+```bash
+# Build with all available CPU cores
+make -j$(nproc)
 
-```powershell
-cd build
+# The compiled executable will be at:
+# build/RTSPCameraViewer
+```
 
-# Build Release version (optimized)
-cmake --build . --config Release
+**Build options:**
+- **Release** (default): Optimized with `-O3`, `-march=native`, and LTO enabled
+- **Debug**: Add `-DCMAKE_BUILD_TYPE=Debug` to CMake for debugging symbols
 
-# Or Debug version (for development)
-cmake --build . --config Debug
+#### 4. Run the Application
+
+```bash
+# From project root
+./build/RTSPCameraViewer
+
+# Or from build directory
+cd build && ./RTSPCameraViewer
+```
+
+## 🔧 Build Customization
+
+### Debug Build
+
+For development with debug symbols:
+
+```bash
+mkdir -p build-debug && cd build-debug
+cmake -DCMAKE_BUILD_TYPE=Debug ..
+make -j$(nproc)
+```
+
+### Custom Compiler
+
+```bash
+# Use Clang instead of GCC
+CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j$(nproc)
+```
+
+### Verbose Build Output
+
+```bash
+make VERBOSE=1
 ```
 
 ## ⚙️ Configuration
 
-Edit `config.ini` to set your camera URLs:
+Edit [config/config.ini](../config/config.ini) to set your camera URLs:
 
 ```ini
 [cameras]
@@ -129,11 +163,11 @@ window_height = 1080
 max_fps = 120
 
 [performance]
-hardware_acceleration = auto  # or d3d11va, nvdec, none
+hardware_acceleration = vaapi  # or vdpau, none
 ultra_low_latency = true
 ```
 
-## 🎮 Controls (Planned)
+## 🎮 Controls
 
 | Key | Action |
 |-----|--------|

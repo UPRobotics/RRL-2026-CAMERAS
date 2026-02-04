@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.25)
 project(RTSPCameraViewer 
     VERSION 1.0.0
     LANGUAGES CXX
-    DESCRIPTION "Ultra-low latency RTSP multi-camera viewer"
+    DESCRIPTION "Ultra-low latency RTSP multi-camera viewer for Ubuntu 22.04"
 )
 
 # Require C++20
@@ -18,42 +18,18 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-# Compiler optimizations for Release
-if(MSVC)
-    # MSVC compiler flags
-    add_compile_options(
-        /W4                 # Warning level 4
-        /permissive-        # Standards conformance
-        $<$<CONFIG:Release>:/O2>        # Maximum optimization
-        $<$<CONFIG:Release>:/GL>        # Whole program optimization
-        $<$<CONFIG:Release>:/arch:AVX2> # AVX2 instructions
-    )
-    add_link_options(
-        $<$<CONFIG:Release>:/LTCG>      # Link-time code generation
-        $<$<CONFIG:Release>:/OPT:REF>   # Eliminate unused functions
-        $<$<CONFIG:Release>:/OPT:ICF>   # Identical COMDAT folding
-    )
-else()
-    # GCC/Clang flags
-    add_compile_options(
-        -Wall -Wextra -Wpedantic
-        $<$<CONFIG:Release>:-O3>
-        $<$<CONFIG:Release>:-march=native>
-        $<$<CONFIG:Release>:-flto>
-    )
-    add_link_options(
-        $<$<CONFIG:Release>:-flto>
-    )
-endif()
+# GCC compiler flags for Linux
+add_compile_options(
+    -Wall -Wextra -Wpedantic
+    $<$<CONFIG:Release>:-O3>
+    $<$<CONFIG:Release>:-march=native>
+    $<$<CONFIG:Release>:-flto>
+)
+add_link_options(
+    $<$<CONFIG:Release>:-flto>
+)
 
-# vcpkg integration
-if(DEFINED ENV{VCPKG_ROOT})
-    set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-        CACHE STRING "Vcpkg toolchain file")
-    message(STATUS "Using vcpkg toolchain: ${CMAKE_TOOLCHAIN_FILE}")
-endif()
-
-# Find required packages
+# Find required packages using pkg-config
 find_package(PkgConfig REQUIRED)
 
 # FFmpeg libraries
@@ -65,23 +41,25 @@ pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
     libswresample
 )
 
-# SDL2 - try CONFIG first, then MODULE
-find_package(SDL2 CONFIG QUIET)
-if(NOT SDL2_FOUND)
-    find_package(SDL2 MODULE REQUIRED)
-endif()
+# SDL2
+pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
 
 # SDL2_ttf for text rendering
-find_package(SDL2_ttf CONFIG REQUIRED)
+pkg_check_modules(SDL2_TTF REQUIRED IMPORTED_TARGET SDL2_ttf)
 
-# spdlog for logging
-find_package(spdlog CONFIG REQUIRED)
+# spdlog for logging (header-only or system library)
+find_package(spdlog REQUIRED)
 
-# nlohmann_json for configuration
-find_package(nlohmann_json CONFIG REQUIRED)
+# nlohmann_json for configuration (header-only)
+find_path(NLOHMANN_JSON_INCLUDE_DIR nlohmann/json.hpp
+    PATHS /usr/include /usr/local/include
+    REQUIRED
+)
 
-# Optional: Concurrentqueue for lock-free queues
-find_package(concurrentqueue CONFIG QUIET)
+# Concurrentqueue header-only library
+find_path(CONCURRENTQUEUE_INCLUDE_DIR concurrentqueue/concurrentqueue.h
+    PATHS /usr/include /usr/local/include
+)
 
 # Source files
 set(SOURCES
@@ -112,37 +90,23 @@ add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${NLOHMANN_JSON_INCLUDE_DIR}
 )
+
+# Add concurrentqueue include if found
+if(CONCURRENTQUEUE_INCLUDE_DIR)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${CONCURRENTQUEUE_INCLUDE_DIR})
+    message(STATUS "ConcurrentQueue: Found at ${CONCURRENTQUEUE_INCLUDE_DIR}")
+endif()
 
 # Link libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
     PkgConfig::LIBAV
-    SDL2::SDL2
-    SDL2::SDL2main
+    PkgConfig::SDL2
+    PkgConfig::SDL2_TTF
     spdlog::spdlog
-    nlohmann_json::nlohmann_json
-    $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>
+    pthread
 )
-
-# Optionally link concurrentqueue if found
-if(concurrentqueue_FOUND)
-    target_link_libraries(${PROJECT_NAME} PRIVATE concurrentqueue::concurrentqueue)
-    message(STATUS "ConcurrentQueue: Found")
-endif()
-
-# Windows-specific settings
-if(WIN32)
-    # Set subsystem to Windows for GUI app (no console)
-    # Comment this line if you want console output during development
-    # set_target_properties(${PROJECT_NAME} PROPERTIES WIN32_EXECUTABLE ON)
-    
-    # Copy SDL2 DLL to output directory
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:SDL2::SDL2>
-        $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    )
-endif()
 
 # Installation
 install(TARGETS ${PROJECT_NAME}
@@ -157,13 +121,14 @@ install(FILES
 
 # Print configuration summary
 message(STATUS "")
-message(STATUS "=== ${PROJECT_NAME} Configuration ===")
+message(STATUS "=== ${PROJECT_NAME} Configuration (Ubuntu 22.04) ===")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "C++ Standard: C++${CMAKE_CXX_STANDARD}")
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
-message(STATUS "FFmpeg found: ${LIBAV_FOUND}")
-message(STATUS "SDL2 found: ${SDL2_FOUND}")
-message(STATUS "spdlog found: ${spdlog_FOUND}")
-message(STATUS "nlohmann_json found: ${nlohmann_json_FOUND}")
-message(STATUS "=====================================")
+message(STATUS "FFmpeg: ${LIBAV_VERSION}")
+message(STATUS "SDL2: ${SDL2_VERSION}")
+message(STATUS "SDL2_ttf: ${SDL2_TTF_VERSION}")
+message(STATUS "spdlog: Found")
+message(STATUS "nlohmann_json: Found")
+message(STATUS "=====================================================")
 message(STATUS "")

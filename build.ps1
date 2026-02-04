@@ -1,3 +1,6 @@
+# ⚠️  WINDOWS ONLY - This script is for Windows development
+# For Ubuntu 22.04, use: ./build.sh
+#
 # Build script for RRL-2026-CAMERAS C++ RTSP Viewer
 # This script sets up the Visual Studio environment and builds the project
 

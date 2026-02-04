@@ -6,20 +6,15 @@
             "type": "shell",
             "command": "cmake",
             "args": [
-                "-G",
-                "NMake Makefiles",
                 "-DCMAKE_BUILD_TYPE=Release",
-                "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake",
+                "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
                 "-S",
                 "${workspaceFolder}",
                 "-B",
                 "${workspaceFolder}/build"
             ],
             "options": {
-                "cwd": "${workspaceFolder}",
-                "env": {
-                    "VCPKG_ROOT": "C:/vcpkg"
-                }
+                "cwd": "${workspaceFolder}"
             },
             "problemMatcher": [],
             "group": {
@@ -30,13 +25,16 @@
         {
             "label": "CMake: Build",
             "type": "shell",
-            "command": "nmake",
-            "args": [],
+            "command": "make",
+            "args": [
+                "-j${config:cmake.parallelJobs}",
+                "-j$(nproc)"
+            ],
             "options": {
                 "cwd": "${workspaceFolder}/build"
             },
             "problemMatcher": [
-                "$msCompile"
+                "$gcc"
             ],
             "group": {
                 "kind": "build",
@@ -47,7 +45,7 @@
         {
             "label": "CMake: Clean",
             "type": "shell",
-            "command": "nmake",
+            "command": "make",
             "args": [
                 "clean"
             ],
@@ -63,6 +61,15 @@
                 "CMake: Build"
             ],
             "dependsOrder": "sequence",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Application",
+            "type": "shell",
+            "command": "${workspaceFolder}/build/RTSPCameraViewer",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "problemMatcher": []
         }
     ]

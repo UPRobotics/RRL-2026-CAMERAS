@@ -1,3 +1,6 @@
+# ⚠️  WINDOWS ONLY - This script is for Windows development
+# For Ubuntu 22.04, you'll need to adapt this for Linux webcam tools
+#
 # Debug RTSP Webcam Server Launcher
 # This script starts an RTSP server streaming your webcam for testing
 

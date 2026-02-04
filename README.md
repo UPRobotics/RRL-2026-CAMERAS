@@ -5,13 +5,13 @@
 A high-performance camera monitoring system designed for robotics competitions, supporting multiple simultaneous RTSP streams with hardware-accelerated decoding and a modern UI.
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
-![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
-![C++](https://img.shields.io/badge/C%2B%2B-17-orange)
+![Platform](https://img.shields.io/badge/platform-Ubuntu%2022.04-orange)
+![C++](https://img.shields.io/badge/C%2B%2B-20-orange)
 
 ## ✨ Features
 
 - 🎥 **Multi-Camera Support** - View up to 16 cameras simultaneously
-- ⚡ **Ultra-Low Latency** - Hardware-accelerated decoding (NVIDIA NVDEC, Intel QSV, D3D11VA)
+- ⚡ **Ultra-Low Latency** - Hardware-accelerated decoding (VAAPI, VDPAU)
 - 🎨 **Modern UI** - Clean interface with toolbar, stats panel, and console
 - 📐 **Multiple View Modes** - Fullscreen, 2x2 grid, or NxN auto-layout
 - 🔄 **Quality Switching** - Toggle between high-res and low-res streams
@@ -23,31 +23,44 @@ A high-performance camera monitoring system designed for robotics competitions, 
 
 ### Prerequisites
 
-- **Windows 10/11** (64-bit)
-- **Visual Studio 2022** with "Desktop development with C++"
+- **Ubuntu 22.04 LTS** (64-bit)
+- **GCC 11.4+** or compatible C++20 compiler
 - **CMake 3.25+**
 - **Git**
 
 ### Installation
 
 1. **Clone the repository**
-   ```powershell
+   ```bash
    git clone https://github.com/UPRobotics/RRL-2026-CAMERAS.git
    cd RRL-2026-CAMERAS
    ```
 
-2. **Run the build script**
-   ```powershell
-   .\build.ps1
+2. **Install dependencies**
+   ```bash
+   sudo apt update && sudo apt install -y \
+       cmake g++ make pkg-config \
+       libsdl2-dev libsdl2-ttf-dev \
+       libavcodec-dev libavformat-dev libswscale-dev libswresample-dev \
+       libspdlog-dev nlohmann-json3-dev libconcurrentqueue-dev
+   ```
+
+3. **Build the application**
+   ```bash
+   ./build.sh
    ```
    
-   This automatically:
-   - Installs vcpkg dependencies (FFmpeg, SDL2, etc.)
-   - Configures CMake
-   - Builds the application
-   - First build takes ~20-30 minutes
+   Or manually:
+   ```bash
+   mkdir -p build && cd build
+   cmake -DCMAKE_BUILD_TYPE=Release ..
+   make -j$(nproc)
+   ```
 
-3. **Launch the application**
+4. **Launch the application**
+   ```bash
+   ./build/RTSPCameraViewer
+   ```
    ```powershell
    .\build\RTSPCameraViewer.exe
    ```
