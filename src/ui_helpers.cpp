@@ -22,10 +22,8 @@ bool FontManager::initialize() {
     // We'll use a built-in system font or embed one
     // For Windows, try common system fonts
     const char* fontPaths[] = {
-        "C:\\Windows\\Fonts\\segoeui.ttf",      // Segoe UI
-        "C:\\Windows\\Fonts\\arial.ttf",        // Arial
-        "C:\\Windows\\Fonts\\calibri.ttf",      // Calibri
-        "C:\\Windows\\Fonts\\consola.ttf",      // Consolas
+        "//usr/share/fonts/truetype/freefont/FreeMono.ttf",
+
     };
     
     const char* selectedFont = nullptr;
