@@ -55,13 +55,6 @@ bool SettingsManager::load(const std::string& filepath) {
             m_lastConsoleHeight = console.value("last_console_height", 500);
         }
         
-        // Load debug settings
-        if (j.contains("debug")) {
-            auto& debug = j["debug"];
-            m_debugRtspUrl = debug.value("rtsp_url", "rtsp://127.0.0.1:8554/webcam");
-            m_debugVirtualCameraCount = debug.value("virtual_camera_count", 1);
-        }
-        
         spdlog::info("Settings loaded from {}", filepath);
         return true;
     }
@@ -101,12 +94,6 @@ bool SettingsManager::save(const std::string& filepath) {
             {"last_console_y", m_lastConsoleY},
             {"last_console_width", m_lastConsoleWidth},
             {"last_console_height", m_lastConsoleHeight}
-        };
-        
-        // Save debug settings
-        j["debug"] = {
-            {"rtsp_url", m_debugRtspUrl},
-            {"virtual_camera_count", m_debugVirtualCameraCount}
         };
         
         std::ofstream file(filepath);

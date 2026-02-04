@@ -7,10 +7,6 @@
     "last_console_y": 100,
     "remember_position": true
   },
-  "debug": {
-    "rtsp_url": "rtsp://127.0.0.1:8554/webcam",
-    "virtual_camera_count": 1
-  },
   "display": {
     "fullscreen_on_startup": false,
     "last_window_height": 720,

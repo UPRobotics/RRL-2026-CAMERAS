@@ -5,7 +5,6 @@ Common issues and their solutions.
 ## Table of Contents
 - [Build Issues](#build-issues)
 - [Runtime Issues](#runtime-issues)
-- [Debug Mode Issues](#debug-mode-issues)
 - [Performance Issues](#performance-issues)
 - [Development Issues](#development-issues)
 
@@ -135,13 +134,6 @@ Get-ChildItem build\Release\*.dll
 # Should show SDL2.dll, SDL2_ttf.dll, and others
 ```
 
-**Check 2 - Debug mode:**
-```powershell
-# Run debug build for more info
-cmake --build build --config Debug
-.\build\Debug\RTSPCameraViewer.exe
-```
-
 **Check 3 - Logs:**
 - Look for error messages in terminal
 - Press `C` to open console window (if app starts)
@@ -209,84 +201,6 @@ notepad config\settings.json
 
 ---
 
-## Debug Mode Issues
-
-### Debug server won't start
-
-**Cause 1 - FFmpeg not in PATH:**
-```powershell
-# Check if FFmpeg is available
-ffmpeg -version
-
-# If not found, install or add to PATH
-```
-
-**Cause 2 - Webcam in use:**
-- Close other apps using webcam (Discord, Zoom, etc.)
-- Check Task Manager for processes using camera
-
-**Cause 3 - MediaMTX not extracted:**
-```powershell
-# Check if MediaMTX exists
-Test-Path "tools\mediamtx\mediamtx.exe"
-
-# Download and extract if missing
-# https://github.com/bluenviron/mediamtx/releases
-```
-
-### "Could not find video device"
-
-**Cause:** Webcam name doesn't match
-
-**Solution:**
-```powershell
-# List available webcams
-ffmpeg -list_devices true -f dshow -i dummy 2>&1 | Select-String "video"
-
-# Edit debug-webcam-rtsp.ps1 and change DeviceName
-.\debug-webcam-rtsp.ps1 -DeviceName "Your Webcam Name"
-```
-
-### Debug processes not terminating
-
-**Cause:** Job object cleanup failed
-
-**Solution:**
-```powershell
-# Manually kill processes
-Get-Process ffmpeg, mediamtx -ErrorAction SilentlyContinue | Stop-Process -Force
-
-# This should happen automatically, but manual cleanup works
-```
-
-### No RTSP server output in console
-
-**Cause:** Output filtering or pipe issue
-
-**Solution:**
-1. Press `C` to open console
-2. Look for `[RTSP Server]` prefixed messages
-3. If nothing appears, check that processes are running:
-   ```powershell
-   Get-Process ffmpeg, mediamtx
-   ```
-
-### "Port already in use" error
-
-**Cause:** Previous RTSP server still running on port 8554
-
-**Solution:**
-```powershell
-# Kill processes using the port
-Get-Process ffmpeg, mediamtx | Stop-Process -Force
-
-# Or use different port
-.\debug-webcam-rtsp.ps1 -Port 9554
-# Then update config\settings.json with new URL
-```
-
----
-
 ## Performance Issues
 
 ### High CPU usage
@@ -305,7 +219,7 @@ cmake --build build --config Release
 Each camera adds CPU load
 
 **Solution:**
-- Reduce `virtual_camera_count` in settings.json
+- Reduce the number of active cameras
 - Start with 1-2 cameras, add more gradually
 
 **Cause 3 - Software rendering:**
@@ -416,17 +330,12 @@ If your issue isn't covered here:
    - Run app and press `C` to view console
    - Look for error messages
 
-2. **Enable debug mode:**
-   ```powershell
-   .\build\Debug\RTSPCameraViewer.exe --debug
-   ```
-
-3. **Search issues:**
+2. **Search issues:**
    - [Project Issues](https://github.com/UPRobotics/RRL-2026-CAMERAS/issues)
    - [vcpkg Issues](https://github.com/microsoft/vcpkg/issues)
    - [FFmpeg Issues](https://trac.ffmpeg.org/)
 
-4. **Ask for help:**
+3. **Ask for help:**
    - Open a GitHub issue with:
      - System info (Windows version, CPU, GPU)
      - Build output
@@ -444,8 +353,6 @@ If your issue isn't covered here:
 | SDL2.dll missing | `copy C:\vcpkg\installed\x64-windows\bin\SDL2.dll build\Release\` |
 | Build hangs | Be patient, FFmpeg takes 20-30 minutes first time |
 | High CPU | Use Release build, not Debug |
-| Can't start debug | Close apps using webcam |
-| Processes won't die | `Get-Process ffmpeg,mediamtx | Stop-Process -Force` |
 | Clean build needed | `Remove-Item build -Recurse -Force && .\build.ps1` |
 
 ---

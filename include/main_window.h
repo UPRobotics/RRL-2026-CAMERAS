@@ -78,11 +78,6 @@ public:
      */
     void shutdown();
     
-    /**
-     * @brief Set debug mode
-     */
-    void setDebugMode(bool debug) { m_debugMode = debug; }
-
 private:
     // Event handling
     void handleEvents();
@@ -127,8 +122,6 @@ private:
     bool m_consolVisible;
     bool m_isFullscreen;
     int m_activeCameraCount;
-    bool m_debugMode = false;
-
     // UI Components
     std::unique_ptr<ConsoleWindow> m_consoleWindow;
     std::unique_ptr<StatsPanel> m_statsPanel;

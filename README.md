@@ -15,7 +15,6 @@ A high-performance camera monitoring system designed for robotics competitions, 
 - 🎨 **Modern UI** - Clean interface with toolbar, stats panel, and console
 - 📐 **Multiple View Modes** - Fullscreen, 2x2 grid, or NxN auto-layout
 - 🔄 **Quality Switching** - Toggle between high-res and low-res streams
-- 🐛 **Debug Mode** - Built-in RTSP test server using your webcam
 - ⌨️ **Keyboard Controls** - Quick navigation and view mode switching
 - 📊 **Real-time Stats** - FPS, bitrate, and connection status
 
@@ -61,9 +60,6 @@ A high-performance camera monitoring system designed for robotics competitions, 
    ```bash
    ./build/RTSPCameraViewer
    ```
-   ```powershell
-   .\build\RTSPCameraViewer.exe
-   ```
 
 That's it! See [Building Guide](docs/BUILDING.md) for detailed instructions.
 
@@ -86,21 +82,6 @@ That's it! See [Building Guide](docs/BUILDING.md) for detailed instructions.
 1. Click the **"Start Cameras"** button in the toolbar
 2. Cameras will appear in the grid layout
 
-### Debug Mode (Testing)
-
-Test without real RTSP cameras using your webcam:
-
-```powershell
-.\build\RTSPCameraViewer.exe --debug
-```
-
-This automatically:
-- Launches an RTSP server streaming your webcam
-- Creates virtual camera slots
-- Streams to `rtsp://127.0.0.1:8554/webcam`
-
-See [Debug Mode Guide](docs/DEBUG_MODE.md) for details.
-
 ## ⚙️ Configuration
 
 Edit `config/settings.json` to customize:
@@ -112,10 +93,6 @@ Edit `config/settings.json` to customize:
     "remember_window_position": true,
     "last_window_width": 1280,
     "last_window_height": 720
-  },
-  "debug": {
-    "rtsp_url": "rtsp://127.0.0.1:8554/webcam",
-    "virtual_camera_count": 1
   },
   "keybindings": {
     "quit": "Q",
@@ -135,7 +112,6 @@ RRL-2026-CAMERAS/
 ├── build.ps1                   # Build script
 ├── CMakeLists.txt              # Build configuration
 ├── vcpkg.json                  # Dependencies
-├── debug-webcam-rtsp.ps1       # Debug RTSP server
 │
 ├── config/
 │   └── settings.json           # Application settings
@@ -155,12 +131,9 @@ RRL-2026-CAMERAS/
 │
 ├── docs/                       # Documentation
 │   ├── BUILDING.md            # Build instructions
-│   ├── DEBUG_MODE.md          # Debug mode guide
 │   ├── ARCHITECTURE.md        # System design
 │   └── DEVELOPMENT.md         # Developer guide
-│
-└── tools/
-    └── mediamtx/              # RTSP server (for debug mode)
+
 ```
 
 ## 🏗️ Architecture
@@ -202,12 +175,16 @@ Target specifications:
 
 ### Building from Source
 
-```powershell
+```bash
 # Debug build (with symbols)
-cmake --build build --config Debug
+mkdir -p build-debug && cd build-debug
+cmake -DCMAKE_BUILD_TYPE=Debug ..
+make -j$(nproc)
 
 # Release build (optimized)
-cmake --build build --config Release
+cd ../build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j$(nproc)
 ```
 
 ### Project Status
@@ -217,7 +194,6 @@ cmake --build build --config Release
 - [x] SDL2 window and rendering
 - [x] UI components (toolbar, camera grid, stats, console)
 - [x] Settings management
-- [x] Debug RTSP server
 - [ ] RTSP stream decoding (next phase)
 
 See [Development Guide](docs/DEVELOPMENT.md) for contributing.
@@ -226,25 +202,13 @@ See [Development Guide](docs/DEVELOPMENT.md) for contributing.
 
 ### Build Issues
 
-**"vcpkg not found"**
-```powershell
-# Set environment variable
-setx VCPKG_ROOT "C:\vcpkg"
-# Restart terminal
-```
-
 **"FFmpeg not found"**
-```powershell
-cd C:\vcpkg
-.\vcpkg install ffmpeg[core,avcodec,avformat,avutil,swscale]:x64-windows
+```bash
+sudo apt update && sudo apt install -y \
+   libavcodec-dev libavformat-dev libswscale-dev libswresample-dev
 ```
 
 ### Runtime Issues
-
-**Debug server won't start**
-- Check webcam is not in use by another application
-- Verify FFmpeg is in PATH: `ffmpeg -version`
-- See [Debug Mode Guide](docs/DEBUG_MODE.md)
 
 **High CPU usage**
 - Ensure you built Release version, not Debug
@@ -255,7 +219,6 @@ For more help, see [Troubleshooting Guide](docs/TROUBLESHOOTING.md).
 ## 📚 Documentation
 
 - [Building Guide](docs/BUILDING.md) - Detailed build instructions
-- [Debug Mode Guide](docs/DEBUG_MODE.md) - Testing without real cameras
 - [Architecture Guide](docs/ARCHITECTURE.md) - System design and components
 - [Development Guide](docs/DEVELOPMENT.md) - Contributing and code structure
 - [Troubleshooting Guide](docs/TROUBLESHOOTING.md) - Common issues and solutions
@@ -276,7 +239,7 @@ MIT License - See [LICENSE](LICENSE) file for details.
 
 - Built for **UP Robotics** robotics competition team
 - Based on Python version from RRL-2025 project
-- Uses [FFmpeg](https://ffmpeg.org/), [SDL2](https://www.libsdl.org/), [spdlog](https://github.com/gabime/spdlog), and [MediaMTX](https://github.com/bluenviron/mediamtx)
+- Uses [FFmpeg](https://ffmpeg.org/), [SDL2](https://www.libsdl.org/), and [spdlog](https://github.com/gabime/spdlog)
 
 ---
 

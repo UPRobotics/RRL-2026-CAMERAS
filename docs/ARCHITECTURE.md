@@ -11,7 +11,6 @@ The RTSP Camera Viewer is built with a modular, component-based architecture des
 │                    Application                        │
 │                      (main.cpp)                       │
 │  - Process management                                 │
-│  - Debug mode handling                                │
 │  - Lifecycle control                                  │
 └──────────────────────────────────────────────────────┘
                          │
@@ -116,11 +115,9 @@ rows = ceil(N / cols)
 - JSON settings persistence
 - Keybinding management
 - Window position/size memory
-- Debug configuration
 
 **Settings Categories:**
 - `display` - Window and fullscreen settings
-- `debug` - Debug RTSP server configuration
 - `keybindings` - Keyboard shortcuts
 - `console` - Console window preferences
 
@@ -201,30 +198,6 @@ MainWindow::render()
 - Actual: Limited by SDL_Delay in main loop
 - Camera streams: Independent of UI (30 FPS typical)
 
-## Debug Mode Architecture
-
-```
-main.cpp (--debug)
-  └─ Create Job Object
-      └─ Launch PowerShell (headless)
-          ├─ Start MediaMTX (hidden)
-          └─ Start FFmpeg (hidden)
-              └─ Capture webcam → RTSP stream
-              
-Application reads output pipe → logs to console
-```
-
-**Process Hierarchy:**
-```
-RTSPCameraViewer.exe
- └─ Job Object (JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE)
-     ├─ powershell.exe (hidden)
-     ├─ mediamtx.exe (hidden)
-     └─ ffmpeg.exe (hidden)
-```
-
-When app exits → Job closes → All children terminate
-
 ## Configuration System
 
 **File:** `config/settings.json`
@@ -248,10 +221,10 @@ SettingsManager::instance().save()
 **Access:**
 ```cpp
 // Get setting
-auto url = SettingsManager::instance().getDebugRtspUrl();
+auto width = SettingsManager::instance().getLastWindowWidth();
 
 // Set setting
-SettingsManager::instance().setDebugRtspUrl("rtsp://...");
+SettingsManager::instance().setLastWindowSize(1280, 720);
 SettingsManager::instance().save();
 ```
 
@@ -363,7 +336,7 @@ Areas designed for future extension:
 ## Testing Strategy
 
 **Current:**
-- Manual testing with debug mode
+- Manual testing with real RTSP cameras
 - Visual verification of UI
 
 **Future:**

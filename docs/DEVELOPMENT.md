@@ -5,43 +5,35 @@
 ### Development Environment Setup
 
 1. **Clone the repository**
-   ```powershell
+    ```bash
    git clone https://github.com/UPRobotics/RRL-2026-CAMERAS.git
    cd RRL-2026-CAMERAS
    ```
 
 2. **Run initial build**
-   ```powershell
-   .\build.ps1
+    ```bash
+    ./build.sh
    ```
 
 3. **Open in your preferred IDE**
-   - **Visual Studio 2022**: Open `RRL-2026-CAMERAS.code-workspace` or `build/RTSPCameraViewer.sln`
-   - **VSCode**: Open folder and use CMake Tools extension
+    - **VSCode**: Open folder and use CMake Tools extension
 
 ## Building
 
 ### Command Line
 
-```powershell
+```bash
 # Release build (optimized, use this for testing)
-cmake --build build --config Release
+mkdir -p build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j$(nproc)
 
 # Debug build (with symbols, for development)
-cmake --build build --config Debug
-
-# Clean build
-cmake --build build --config Release --clean-first
-
-# Verbose output
-cmake --build build --config Release --verbose
+cd ..
+mkdir -p build-debug && cd build-debug
+cmake -DCMAKE_BUILD_TYPE=Debug ..
+make -j$(nproc)
 ```
-
-### Visual Studio
-
-1. Open `build/RTSPCameraViewer.sln`
-2. Select configuration: **Release** or **Debug**
-3. Build → Build Solution (`Ctrl+Shift+B`)
 
 ### VSCode
 
@@ -55,7 +47,7 @@ cmake --build build --config Release --verbose
 RRL-2026-CAMERAS/
 ├── CMakeLists.txt              # Build configuration
 ├── vcpkg.json                  # Dependencies manifest
-├── build.ps1                   # Automated build script
+├── build.sh                    # Automated build script
 │
 ├── include/                    # Public header files
 │   ├── main_window.h          # Main window class
@@ -83,7 +75,6 @@ RRL-2026-CAMERAS/
 └── docs/                       # Documentation
     ├── ARCHITECTURE.md        # System design
     ├── BUILDING.md            # Build guide
-    ├── DEBUG_MODE.md          # Debug mode guide
     ├── DEVELOPMENT.md         # This file
     └── TROUBLESHOOTING.md     # Common issues
 ```
@@ -357,15 +348,17 @@ spdlog::debug("Exiting function: handleEvents");
 
 ### Manual Testing
 
-1. **Build debug mode**
-   ```powershell
-   cmake --build build --config Debug
-   ```
+1. **Build the application**
+    ```bash
+    mkdir -p build && cd build
+    cmake -DCMAKE_BUILD_TYPE=Release ..
+    make -j$(nproc)
+    ```
 
-2. **Run with debug flag**
-   ```powershell
-   .\build\Debug\RTSPCameraViewer.exe --debug
-   ```
+2. **Run the application**
+    ```bash
+    ./RTSPCameraViewer
+    ```
 
 3. **Open console** (press `C` in app)
 
@@ -374,24 +367,6 @@ spdlog::debug("Exiting function: handleEvents");
    - Press keyboard shortcuts
    - Resize window
    - Check logs in console
-
-### Debug RTSP Server
-
-Test camera integration without real hardware:
-
-```powershell
-# Start app in debug mode
-.\build\RTSPCameraViewer.exe --debug
-
-# Server auto-starts and streams webcam
-# URL: rtsp://127.0.0.1:8554/webcam
-
-# Test with ffplay
-ffplay rtsp://127.0.0.1:8554/webcam
-
-# Test with VLC
-vlc rtsp://127.0.0.1:8554/webcam
-```
 
 ## Performance Profiling
 
