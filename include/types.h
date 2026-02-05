@@ -61,6 +61,7 @@ struct StreamingSettings {
     int reconnect_delay_ms = 2000;
     int max_reconnect_attempts = 5;
     int frame_buffer_size = 1;
+    int frame_timeout_ms = 5000;  // Auto-restart camera if no frames for this duration
 };
 
 // Frame data structure for decoded video

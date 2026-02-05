@@ -50,6 +50,7 @@ bool CameraStream::start(StreamQuality quality) {
         m_stats.dropped_frames = 0;
         m_stats.current_fps = 0;
         m_stats.reconnect_count = 0;
+        m_stats.last_frame_time = std::chrono::steady_clock::now();  // Initialize to prevent false timeout
     }
     
     spdlog::info("Starting camera {} stream ({})", 

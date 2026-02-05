@@ -142,6 +142,12 @@ public:
      */
     float getAverageLatency() const;
     
+    /**
+     * @brief Check for camera frame timeouts and auto-restart if needed
+     * Should be called periodically from the main loop
+     */
+    void checkAutoRecovery();
+    
 private:
     /**
      * @brief Ping a single IP address
@@ -177,6 +183,20 @@ private:
     // Discovery
     std::atomic<bool> m_discoveryRunning{false};
     std::thread m_discoveryThread;
+    
+    // Auto-recovery tracking
+    std::chrono::steady_clock::time_point m_lastRecoveryCheck;
+    
+    // Recovery queue - cameras to restart (done in background)
+    std::vector<size_t> m_recoveryQueue;
+    std::mutex m_recoveryMutex;
+    std::thread m_recoveryThread;
+    std::atomic<bool> m_recoveryRunning{false};
+    
+    /**
+     * @brief Background thread function for camera recovery
+     */
+    void recoveryThreadFunc();
 };
 
 } // namespace camera_viewer

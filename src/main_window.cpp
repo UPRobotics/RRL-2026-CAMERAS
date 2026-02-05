@@ -323,6 +323,7 @@ void MainWindow::render() {
     // Update camera textures from main thread (SDL requirement)
     if (m_cameraManager) {
         m_cameraManager->updateTexturesFromMainThread();
+        m_cameraManager->checkAutoRecovery();
     }
     
     // Clear screen

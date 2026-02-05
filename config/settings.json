@@ -93,9 +93,10 @@
     "view_mode_grid": "3"
   },
   "streaming": {
-    "connection_timeout_ms": 5000,
+    "connection_timeout_ms": 10000,
     "default_quality": "high",
     "frame_buffer_size": 1,
+    "frame_timeout_ms": 5000,
     "max_reconnect_attempts": 5,
     "ping_timeout_ms": 1000,
     "reconnect_delay_ms": 2000

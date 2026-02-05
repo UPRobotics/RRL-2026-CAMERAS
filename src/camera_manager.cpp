@@ -20,10 +20,20 @@ namespace camera_viewer {
 
 CameraManager::CameraManager(SDL_Renderer* renderer)
     : m_renderer(renderer)
+    , m_lastRecoveryCheck(std::chrono::steady_clock::now())
 {
+    // Start the recovery background thread
+    m_recoveryRunning = true;
+    m_recoveryThread = std::thread(&CameraManager::recoveryThreadFunc, this);
 }
 
 CameraManager::~CameraManager() {
+    // Stop recovery thread first
+    m_recoveryRunning = false;
+    if (m_recoveryThread.joinable()) {
+        m_recoveryThread.join();
+    }
+    
     stopAll();
     
     if (m_discoveryThread.joinable()) {
@@ -291,6 +301,97 @@ float CameraManager::getAverageLatency() const {
     }
     
     return count > 0 ? totalLatency / count : 0.0f;
+}
+
+void CameraManager::checkAutoRecovery() {
+    // Only check periodically (every 1 second)
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_lastRecoveryCheck);
+    if (elapsed.count() < 1000) {
+        return;
+    }
+    m_lastRecoveryCheck = now;
+    
+    std::lock_guard<std::mutex> lock(m_streamsMutex);
+    
+    for (size_t i = 0; i < m_streams.size(); ++i) {
+        auto& stream = m_streams[i];
+        if (!stream || !stream->isRunning()) {
+            continue;
+        }
+        
+        CameraStats stats = stream->getStats();
+        
+        // Only check connected cameras
+        if (stats.state != CameraState::Connected) {
+            continue;
+        }
+        
+        // Check if we haven't received frames for too long
+        auto timeSinceLastFrame = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - stats.last_frame_time);
+        
+        if (timeSinceLastFrame.count() > m_settings.frame_timeout_ms) {
+            spdlog::warn("Camera {} frame timeout ({} ms since last frame) - queuing for restart...",
+                        i + 1, timeSinceLastFrame.count());
+            
+            // Queue for recovery in background thread (non-blocking)
+            {
+                std::lock_guard<std::mutex> recoveryLock(m_recoveryMutex);
+                // Avoid duplicates
+                bool alreadyQueued = std::find(m_recoveryQueue.begin(), m_recoveryQueue.end(), i) != m_recoveryQueue.end();
+                if (!alreadyQueued) {
+                    m_recoveryQueue.push_back(i);
+                }
+            }
+        }
+    }
+}
+
+void CameraManager::recoveryThreadFunc() {
+    while (m_recoveryRunning) {
+        size_t cameraIndex = SIZE_MAX;
+        
+        // Check for cameras needing recovery
+        {
+            std::lock_guard<std::mutex> lock(m_recoveryMutex);
+            if (!m_recoveryQueue.empty()) {
+                cameraIndex = m_recoveryQueue.front();
+                m_recoveryQueue.erase(m_recoveryQueue.begin());
+            }
+        }
+        
+        if (cameraIndex != SIZE_MAX) {
+            // Perform recovery (this is the slow/blocking part)
+            spdlog::info("Camera {} - performing auto-restart...", cameraIndex + 1);
+            
+            std::unique_ptr<CameraStream>* streamPtr = nullptr;
+            {
+                std::lock_guard<std::mutex> lock(m_streamsMutex);
+                if (cameraIndex < m_streams.size() && m_streams[cameraIndex]) {
+                    streamPtr = &m_streams[cameraIndex];
+                }
+            }
+            
+            if (streamPtr && *streamPtr) {
+                // Stop the stream
+                (*streamPtr)->stop();
+                
+                // Wait a moment
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                
+                // Restart the stream
+                if ((*streamPtr)->start(m_currentQuality)) {
+                    spdlog::info("Camera {} auto-restart successful", cameraIndex + 1);
+                } else {
+                    spdlog::error("Camera {} auto-restart failed", cameraIndex + 1);
+                }
+            }
+        } else {
+            // No work to do, sleep briefly
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
 }
 
 bool CameraManager::pingHost(const std::string& ip, int timeoutMs) {

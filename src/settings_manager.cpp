@@ -83,6 +83,7 @@ bool SettingsManager::load(const std::string& filepath) {
             m_streamingSettings.reconnect_delay_ms = streaming.value("reconnect_delay_ms", 2000);
             m_streamingSettings.max_reconnect_attempts = streaming.value("max_reconnect_attempts", 5);
             m_streamingSettings.frame_buffer_size = streaming.value("frame_buffer_size", 1);
+            m_streamingSettings.frame_timeout_ms = streaming.value("frame_timeout_ms", 5000);
         }
         
         spdlog::info("Settings loaded from {}", filepath);
@@ -120,7 +121,8 @@ bool SettingsManager::save(const std::string& filepath) {
             {"connection_timeout_ms", m_streamingSettings.connection_timeout_ms},
             {"reconnect_delay_ms", m_streamingSettings.reconnect_delay_ms},
             {"max_reconnect_attempts", m_streamingSettings.max_reconnect_attempts},
-            {"frame_buffer_size", m_streamingSettings.frame_buffer_size}
+            {"frame_buffer_size", m_streamingSettings.frame_buffer_size},
+            {"frame_timeout_ms", m_streamingSettings.frame_timeout_ms}
         };
         
         // Save keybindings
