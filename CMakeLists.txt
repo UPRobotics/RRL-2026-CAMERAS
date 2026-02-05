@@ -70,6 +70,8 @@ set(SOURCES
     src/settings_manager.cpp
     src/stats_panel.cpp
     src/camera_grid.cpp
+    src/camera_stream.cpp
+    src/camera_manager.cpp
     src/ui_helpers.cpp
 )
 
@@ -81,6 +83,8 @@ set(HEADERS
     include/settings_manager.h
     include/stats_panel.h
     include/camera_grid.h
+    include/camera_stream.h
+    include/camera_manager.h
     include/ui_helpers.h
 )
 

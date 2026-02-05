@@ -3,7 +3,9 @@
 #include <SDL2/SDL.h>
 #include <string>
 #include <map>
+#include <vector>
 #include <nlohmann/json.hpp>
+#include "types.h"
 
 namespace camera_viewer {
 
@@ -68,6 +70,12 @@ public:
     void setLastConsolePosition(int x, int y) { m_lastConsoleX = x; m_lastConsoleY = y; }
     void setLastConsoleSize(int width, int height) { m_lastConsoleWidth = width; m_lastConsoleHeight = height; }
     
+    /**
+     * @brief Camera settings
+     */
+    const std::vector<CameraConfig>& getCameraConfigs() const { return m_cameraConfigs; }
+    const StreamingSettings& getStreamingSettings() const { return m_streamingSettings; }
+    
 private:
     SettingsManager() = default;
     ~SettingsManager() = default;
@@ -97,6 +105,9 @@ private:
     int m_lastConsoleWidth = 800;
     int m_lastConsoleHeight = 500;
     
+    // Camera settings
+    std::vector<CameraConfig> m_cameraConfigs;
+    StreamingSettings m_streamingSettings;
     
 };
 

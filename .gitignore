@@ -3,6 +3,8 @@ build/
 build-*/
 out/
 
+camaras/
+
 # CMake generated files
 CMakeCache.txt
 CMakeFiles/

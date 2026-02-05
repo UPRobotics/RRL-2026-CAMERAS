@@ -3,6 +3,7 @@
 #include "console_sink.h"
 #include "stats_panel.h"
 #include "camera_grid.h"
+#include "camera_manager.h"
 #include "ui_helpers.h"
 #include "settings_manager.h"
 #include <spdlog/spdlog.h>
@@ -98,8 +99,28 @@ bool MainWindow::initialize() {
     m_consoleWindow = std::make_unique<ConsoleWindow>();
     m_statsPanel = std::make_unique<StatsPanel>();
     m_cameraGrid = std::make_unique<CameraGrid>();
-    m_cameraGrid->setActiveCameraCount(m_activeCameraCount);
+    
+    // Initialize camera manager
+    m_cameraManager = std::make_unique<CameraManager>(m_renderer);
+    m_cameraManager->setCameraConfigs(settings.getCameraConfigs());
+    m_cameraManager->setStreamingSettings(settings.getStreamingSettings());
+    
+    // Connect camera grid to camera manager
+    m_cameraGrid->setCameraManager(m_cameraManager.get());
     m_cameraGrid->setViewMode(m_currentViewMode);
+    
+    // Discover cameras at startup (before main loop)
+    spdlog::info("Discovering cameras at startup...");
+    int available = m_cameraManager->discoverCameras([](int found, int total) {
+        spdlog::debug("Discovery progress: {}/{}", found, total);
+    });
+    
+    // Update camera grid with available indices
+    auto availableIndices = m_cameraManager->getAvailableCameraIndices();
+    m_cameraGrid->setAvailableCameraIndices(availableIndices);
+    m_activeCameraCount = available;
+    
+    spdlog::info("Found {} available cameras", available);
 
     // Set up logging to redirect all messages to console window
     auto console_sink = std::make_shared<ConsoleSink>(m_consoleWindow.get());
@@ -276,25 +297,34 @@ void MainWindow::handleKeyPress(SDL_Keycode key) {
     }
     else if (settings.isKeyForAction(key, "camera_previous")) {
         // Navigate to previous camera in fullscreen mode
-        if (m_currentViewMode == ViewMode::FULLSCREEN && m_activeCameraCount > 0) {
+        if (m_currentViewMode == ViewMode::FULLSCREEN && m_cameraGrid->getAvailableCameraCount() > 0) {
             int currentIndex = m_cameraGrid->getSelectedCameraIndex();
-            int newIndex = (currentIndex - 1 + m_activeCameraCount) % m_activeCameraCount;
+            int count = m_cameraGrid->getAvailableCameraCount();
+            int newIndex = (currentIndex - 1 + count) % count;
             m_cameraGrid->setSelectedCameraIndex(newIndex);
-            spdlog::info("Switched to camera {}", newIndex + 1);
+            int realCamNum = m_cameraGrid->getSelectedRealCameraIndex() + 1;
+            spdlog::info("Switched to Camera {}", realCamNum);
         }
     }
     else if (settings.isKeyForAction(key, "camera_next")) {
         // Navigate to next camera in fullscreen mode
-        if (m_currentViewMode == ViewMode::FULLSCREEN && m_activeCameraCount > 0) {
+        if (m_currentViewMode == ViewMode::FULLSCREEN && m_cameraGrid->getAvailableCameraCount() > 0) {
             int currentIndex = m_cameraGrid->getSelectedCameraIndex();
-            int newIndex = (currentIndex + 1) % m_activeCameraCount;
+            int count = m_cameraGrid->getAvailableCameraCount();
+            int newIndex = (currentIndex + 1) % count;
             m_cameraGrid->setSelectedCameraIndex(newIndex);
-            spdlog::info("Switched to camera {}", newIndex + 1);
+            int realCamNum = m_cameraGrid->getSelectedRealCameraIndex() + 1;
+            spdlog::info("Switched to Camera {}", realCamNum);
         }
     }
 }
 
 void MainWindow::render() {
+    // Update camera textures from main thread (SDL requirement)
+    if (m_cameraManager) {
+        m_cameraManager->updateTexturesFromMainThread();
+    }
+    
     // Clear screen
     SDL_SetRenderDrawColor(m_renderer, 
         Colors::BACKGROUND.r, Colors::BACKGROUND.g, Colors::BACKGROUND.b, Colors::BACKGROUND.a);
@@ -369,20 +399,30 @@ void MainWindow::renderStatsBar() {
 void MainWindow::onStartCamerasClicked() {
     spdlog::info("Start Cameras clicked");
     
+    if (m_activeCameraCount == 0) {
+        spdlog::warn("No cameras available - run discovery first");
+        return;
+    }
+    
+    // Start all available camera streams
+    m_cameraManager->startAll();
+    
     m_toolbarButtons[0].enabled = false; // Disable Start
     m_toolbarButtons[1].enabled = true;  // Enable Stop
     m_toolbarButtons[2].enabled = true;  // Enable Restart
+    
+    spdlog::info("Started {} camera streams", m_activeCameraCount);
 }
 
 void MainWindow::onStopCamerasClicked() {
     spdlog::info("Stop Cameras clicked");
     
-    // Clear active cameras
-    m_activeCameraCount = 0;
-    if (m_cameraGrid) {
-        m_cameraGrid->setActiveCameraCount(0);
+    // Stop all camera streams
+    if (m_cameraManager) {
+        m_cameraManager->stopAll();
     }
     
+    // Keep available camera info but mark as stopped
     m_toolbarButtons[0].enabled = true;  // Enable Start
     m_toolbarButtons[1].enabled = false; // Disable Stop
     m_toolbarButtons[2].enabled = false; // Disable Restart
@@ -391,9 +431,34 @@ void MainWindow::onStopCamerasClicked() {
 void MainWindow::onRestartCamerasClicked() {
     spdlog::info("Restart Cameras clicked");
     
-    // Restart is same as stop then start
-    onStopCamerasClicked();
-    onStartCamerasClicked();
+    // Stop first
+    if (m_cameraManager) {
+        m_cameraManager->stopAll();
+    }
+    
+    // Re-discover cameras
+    spdlog::info("Re-discovering cameras...");
+    int available = m_cameraManager->discoverCameras([](int found, int total) {
+        spdlog::debug("Discovery progress: {}/{}", found, total);
+    });
+    
+    // Update camera grid with available indices
+    auto availableIndices = m_cameraManager->getAvailableCameraIndices();
+    m_cameraGrid->setAvailableCameraIndices(availableIndices);
+    m_activeCameraCount = available;
+    
+    if (available > 0) {
+        m_cameraManager->startAll();
+        m_toolbarButtons[0].enabled = false;
+        m_toolbarButtons[1].enabled = true;
+        m_toolbarButtons[2].enabled = true;
+    } else {
+        m_toolbarButtons[0].enabled = true;
+        m_toolbarButtons[1].enabled = false;
+        m_toolbarButtons[2].enabled = false;
+    }
+    
+    spdlog::info("Restarted with {} cameras", available);
 }
 
 void MainWindow::onToggleConsoleClicked() {
@@ -450,6 +515,11 @@ void MainWindow::shutdown() {
 
     spdlog::info("Shutting down MainWindow");
     
+    // Stop all camera streams first
+    if (m_cameraManager) {
+        m_cameraManager->stopAll();
+    }
+    
     // Save settings before shutdown
     auto& settings = SettingsManager::instance();
     
@@ -463,6 +533,7 @@ void MainWindow::shutdown() {
     
     settings.save();
 
+    m_cameraManager.reset();
     m_consoleWindow.reset();
     m_statsPanel.reset();
     m_cameraGrid.reset();

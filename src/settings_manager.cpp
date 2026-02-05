@@ -55,6 +55,36 @@ bool SettingsManager::load(const std::string& filepath) {
             m_lastConsoleHeight = console.value("last_console_height", 500);
         }
         
+        // Load camera configurations
+        if (j.contains("cameras")) {
+            m_cameraConfigs.clear();
+            for (const auto& cam : j["cameras"]) {
+                CameraConfig config;
+                config.id = cam.value("id", "");
+                config.name = cam.value("name", "");
+                config.ip = cam.value("ip", "");
+                config.port = cam.value("port", 554);
+                config.url_highres = cam.value("url_highres", "");
+                config.url_lowres = cam.value("url_lowres", "");
+                config.enabled = cam.value("enabled", true);
+                config.available = false; // Will be set by discovery
+                m_cameraConfigs.push_back(config);
+            }
+            spdlog::info("Loaded {} camera configurations", m_cameraConfigs.size());
+        }
+        
+        // Load streaming settings
+        if (j.contains("streaming")) {
+            auto& streaming = j["streaming"];
+            std::string quality = streaming.value("default_quality", "high");
+            m_streamingSettings.default_quality = (quality == "low") ? StreamQuality::Low : StreamQuality::High;
+            m_streamingSettings.ping_timeout_ms = streaming.value("ping_timeout_ms", 1000);
+            m_streamingSettings.connection_timeout_ms = streaming.value("connection_timeout_ms", 5000);
+            m_streamingSettings.reconnect_delay_ms = streaming.value("reconnect_delay_ms", 2000);
+            m_streamingSettings.max_reconnect_attempts = streaming.value("max_reconnect_attempts", 5);
+            m_streamingSettings.frame_buffer_size = streaming.value("frame_buffer_size", 1);
+        }
+        
         spdlog::info("Settings loaded from {}", filepath);
         return true;
     }
@@ -67,6 +97,31 @@ bool SettingsManager::load(const std::string& filepath) {
 bool SettingsManager::save(const std::string& filepath) {
     try {
         json j;
+        
+        // Save camera configurations (preserve them)
+        json cameras = json::array();
+        for (const auto& config : m_cameraConfigs) {
+            json cam;
+            cam["id"] = config.id;
+            cam["name"] = config.name;
+            cam["ip"] = config.ip;
+            cam["port"] = config.port;
+            cam["url_highres"] = config.url_highres;
+            cam["url_lowres"] = config.url_lowres;
+            cam["enabled"] = config.enabled;
+            cameras.push_back(cam);
+        }
+        j["cameras"] = cameras;
+        
+        // Save streaming settings
+        j["streaming"] = {
+            {"default_quality", m_streamingSettings.default_quality == StreamQuality::High ? "high" : "low"},
+            {"ping_timeout_ms", m_streamingSettings.ping_timeout_ms},
+            {"connection_timeout_ms", m_streamingSettings.connection_timeout_ms},
+            {"reconnect_delay_ms", m_streamingSettings.reconnect_delay_ms},
+            {"max_reconnect_attempts", m_streamingSettings.max_reconnect_attempts},
+            {"frame_buffer_size", m_streamingSettings.frame_buffer_size}
+        };
         
         // Save keybindings
         json keybindings;

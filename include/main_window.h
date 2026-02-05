@@ -12,6 +12,7 @@ namespace camera_viewer {
 class ConsoleWindow;
 class StatsPanel;
 class CameraGrid;
+class CameraManager;
 class ToolbarButton;
 
 /**
@@ -126,6 +127,7 @@ private:
     std::unique_ptr<ConsoleWindow> m_consoleWindow;
     std::unique_ptr<StatsPanel> m_statsPanel;
     std::unique_ptr<CameraGrid> m_cameraGrid;
+    std::unique_ptr<CameraManager> m_cameraManager;
 
     // Button states (for hover effects)
     struct ButtonRect {
