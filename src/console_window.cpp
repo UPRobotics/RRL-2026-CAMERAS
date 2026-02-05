@@ -23,14 +23,22 @@ ConsoleWindow::~ConsoleWindow() {
 }
 
 bool ConsoleWindow::create(int x, int y, int width, int height) {
+    // If window already exists, just show it and raise to top
+    if (m_window) {
+        SDL_ShowWindow(m_window);
+        SDL_RaiseWindow(m_window);
+        m_visible = true;
+        return true;
+    }
+    
     m_width = width;
     m_height = height;
 
-    // Create console window
+    // Create console window with always-on-top flag
     m_window = SDL_CreateWindow(
         "Console - Logs & Diagnostics",
         x, y, width, height,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
+        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALWAYS_ON_TOP
     );
 
     if (!m_window) {
@@ -60,6 +68,7 @@ void ConsoleWindow::setVisible(bool visible) {
     if (m_window) {
         if (visible) {
             SDL_ShowWindow(m_window);
+            SDL_RaiseWindow(m_window);  // Bring to front
         } else {
             SDL_HideWindow(m_window);
         }

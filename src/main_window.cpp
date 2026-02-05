@@ -465,13 +465,16 @@ void MainWindow::onToggleConsoleClicked() {
     m_consolVisible = !m_consolVisible;
     
     if (m_consolVisible) {
-        // Create console window if it doesn't exist or show it
+        // Create or show console window
         if (!m_consoleWindow->isVisible()) {
             int consoleX = 100;
             int consoleY = 100;
             int consoleWidth = 800;
             int consoleHeight = 500;
+            // create() will reuse existing window if already created
             m_consoleWindow->create(consoleX, consoleY, consoleWidth, consoleHeight);
+        } else {
+            // Just raise to front if already visible
             m_consoleWindow->setVisible(true);
         }
         m_toolbarButtons[3].label = "Hide Console";
