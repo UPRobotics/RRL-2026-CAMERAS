@@ -111,6 +111,7 @@ private:
     float sampleProcessCpuPercent();
     float sampleProcessRamPercent();
     float pingCameraMs();
+    float sampleGpuUsagePercent();
 
     // Window properties
     std::string m_title;
@@ -141,8 +142,6 @@ private:
     std::unique_ptr<CameraGrid> m_cameraGrid;
     std::unique_ptr<CameraManager> m_cameraManager;
 
-    DecodeMode m_decodeMode;
-
     // Button states (for hover effects)
     struct ButtonRect {
         SDL_Rect rect;
@@ -160,10 +159,12 @@ private:
     std::atomic<float> m_cpuUsageAtomic{0.0f};
     std::atomic<float> m_ramUsageAtomic{0.0f};
     std::atomic<float> m_latencyAtomic{0.0f};
+    std::atomic<float> m_gpuUsageAtomic{0.0f};
     std::string m_pingCameraIp;
     uint64_t m_prevProcJiffies = 0;
     uint64_t m_prevTotalJiffies = 0;
     bool m_hasPrevCpuSample = false;
+    DecodeMode m_decodeMode;
 };
 
 } // namespace camera_viewer

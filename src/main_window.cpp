@@ -12,6 +12,7 @@
 #include <fstream>
 #include <sstream>
 #include <unistd.h>
+#include <cstdio>
 
 namespace camera_viewer {
 
@@ -358,6 +359,7 @@ void MainWindow::render() {
         m_statsPanel->updateCpuUsage(m_cpuUsageAtomic.load());
         m_statsPanel->updateRamUsage(m_ramUsageAtomic.load());
         m_statsPanel->updateLatency(m_latencyAtomic.load());
+        m_statsPanel->updateGpuUsage(m_gpuUsageAtomic.load());
     }
     
     // Clear screen
@@ -713,16 +715,44 @@ float MainWindow::sampleProcessRamPercent() {
     return (static_cast<float>(rssBytes) / memTotalBytes) * 100.0f;
 }
 
+float MainWindow::sampleGpuUsagePercent() {
+    // Use nvidia-smi if available; query first GPU utilization
+    const char* cmd = "nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits -i 0";
+    FILE* pipe = popen(cmd, "r");
+    if (!pipe) return 0.0f;
+
+    char buffer[128];
+    std::string output;
+    if (fgets(buffer, sizeof(buffer), pipe)) {
+        output = buffer;
+    }
+    pclose(pipe);
+
+    try {
+        // Trim whitespace
+        output.erase(0, output.find_first_not_of(" \t\n\r"));
+        output.erase(output.find_last_not_of(" \t\n\r") + 1);
+        if (!output.empty()) {
+            return std::stof(output);
+        }
+    } catch (...) {
+        return 0.0f;
+    }
+    return 0.0f;
+}
+
 void MainWindow::telemetryLoop() {
     using namespace std::chrono_literals;
     while (m_telemetryRunning) {
         float cpu = sampleProcessCpuPercent();
         float ram = sampleProcessRamPercent();
         float pingMs = pingCameraMs();
+        float gpu = sampleGpuUsagePercent();
 
         m_cpuUsageAtomic.store(cpu);
         m_ramUsageAtomic.store(ram);
         m_latencyAtomic.store(pingMs);
+        m_gpuUsageAtomic.store(gpu);
 
         std::this_thread::sleep_for(1s);
     }

@@ -6,9 +6,9 @@
       "ip": "192.168.0.200",
       "name": "Camera 1",
       "port": 554,
+      "rotation_deg": 0,
       "url_highres": "rtsp://192.168.0.200:554/stream1",
-      "url_lowres": "rtsp://192.168.0.200:554/stream2",
-      "rotation_deg": 0
+      "url_lowres": "rtsp://192.168.0.200:554/stream2"
     },
     {
       "enabled": true,
@@ -16,9 +16,9 @@
       "ip": "192.168.0.201",
       "name": "Camera 2",
       "port": 554,
+      "rotation_deg": 0,
       "url_highres": "rtsp://192.168.0.201:554/stream1",
-      "url_lowres": "rtsp://192.168.0.201:554/stream2",
-      "rotation_deg": 0
+      "url_lowres": "rtsp://192.168.0.201:554/stream2"
     },
     {
       "enabled": true,
@@ -26,9 +26,9 @@
       "ip": "192.168.0.202",
       "name": "Camera 3",
       "port": 554,
+      "rotation_deg": 0,
       "url_highres": "rtsp://192.168.0.202:554/stream1",
-      "url_lowres": "rtsp://192.168.0.202:554/stream2",
-      "rotation_deg": 0
+      "url_lowres": "rtsp://192.168.0.202:554/stream2"
     },
     {
       "enabled": true,
@@ -36,9 +36,9 @@
       "ip": "192.168.0.203",
       "name": "Camera 4",
       "port": 554,
+      "rotation_deg": 0,
       "url_highres": "rtsp://192.168.0.203:554/stream1",
-      "url_lowres": "rtsp://192.168.0.203:554/stream2",
-      "rotation_deg": 0
+      "url_lowres": "rtsp://192.168.0.203:554/stream2"
     },
     {
       "enabled": true,
@@ -46,9 +46,9 @@
       "ip": "192.168.0.204",
       "name": "Camera 5",
       "port": 554,
+      "rotation_deg": 0,
       "url_highres": "rtsp://admin:admin@192.168.0.204:554/profile0",
-      "url_lowres": "rtsp://admin:admin@192.168.0.204:554/profile1",
-      "rotation_deg": 0
+      "url_lowres": "rtsp://admin:admin@192.168.0.204:554/profile1"
     },
     {
       "enabled": true,
@@ -56,9 +56,9 @@
       "ip": "192.168.0.205",
       "name": "Camera 6",
       "port": 554,
+      "rotation_deg": 0,
       "url_highres": "rtsp://admin:admin@192.168.0.205:554/profile0",
-      "url_lowres": "rtsp://admin:admin@192.168.0.205:554/profile1",
-      "rotation_deg": 0
+      "url_lowres": "rtsp://admin:admin@192.168.0.205:554/profile1"
     },
     {
       "enabled": true,
@@ -66,9 +66,9 @@
       "ip": "192.168.0.206",
       "name": "Camera 7",
       "port": 554,
+      "rotation_deg": 0,
       "url_highres": "rtsp://admin:admin@192.168.0.206:554/profile0",
-      "url_lowres": "rtsp://admin:admin@192.168.0.206:554/profile1",
-      "rotation_deg": 0
+      "url_lowres": "rtsp://admin:admin@192.168.0.206:554/profile1"
     }
   ],
   "console": {

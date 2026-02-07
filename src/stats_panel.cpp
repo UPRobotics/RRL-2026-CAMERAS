@@ -8,6 +8,7 @@ StatsPanel::StatsPanel()
     : m_cpuUsage(0.0f)
     , m_ramUsage(0.0f)
     , m_latency(0.0f)
+    , m_gpuUsage(0.0f)
 {
 }
 
@@ -23,14 +24,19 @@ void StatsPanel::updateLatency(float milliseconds) {
     m_latency = milliseconds;
 }
 
+void StatsPanel::updateGpuUsage(float percentage) {
+    m_gpuUsage = percentage;
+}
+
 void StatsPanel::render(SDL_Renderer* renderer, int x, int y, int width, int height) {
     // Calculate section widths
-    int sectionWidth = width / 3;
+    int sectionWidth = width / 4;
 
     // Format values
-    char cpuText[32], ramText[32], latencyText[32];
+    char cpuText[32], ramText[32], gpuText[32], latencyText[32];
     snprintf(cpuText, sizeof(cpuText), "%.1f%%", m_cpuUsage);
     snprintf(ramText, sizeof(ramText), "%.1f%%", m_ramUsage);
+    snprintf(gpuText, sizeof(gpuText), "%.1f%%", m_gpuUsage);
     snprintf(latencyText, sizeof(latencyText), "%.1f ms", m_latency);
 
     // Render CPU stat
@@ -43,6 +49,11 @@ void StatsPanel::render(SDL_Renderer* renderer, int x, int y, int width, int hei
     renderStatItem(renderer, x + sectionWidth + STAT_PADDING, y + STAT_PADDING,
                   sectionWidth - STAT_PADDING * 2, "RAM Usage", ramText, ramColor);
 
+    // Render GPU stat
+    SDL_Color gpuColor = UIHelpers::getStatColor(m_gpuUsage);
+    renderStatItem(renderer, x + sectionWidth * 2 + STAT_PADDING, y + STAT_PADDING,
+                  sectionWidth - STAT_PADDING * 2, "GPU Usage", gpuText, gpuColor);
+
     // Render Latency stat (different color scheme - lower is better)
     SDL_Color latencyColor;
     if (m_latency < 50.0f) {
@@ -52,7 +63,7 @@ void StatsPanel::render(SDL_Renderer* renderer, int x, int y, int width, int hei
     } else {
         latencyColor = Colors::STAT_VALUE_CRITICAL;
     }
-    renderStatItem(renderer, x + sectionWidth * 2 + STAT_PADDING, y + STAT_PADDING,
+    renderStatItem(renderer, x + sectionWidth * 3 + STAT_PADDING, y + STAT_PADDING,
                   sectionWidth - STAT_PADDING * 2, "Camera Latency", latencyText, latencyColor);
 }
 

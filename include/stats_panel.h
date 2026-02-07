@@ -18,6 +18,7 @@ public:
     void updateCpuUsage(float percentage);
     void updateRamUsage(float percentage);
     void updateLatency(float milliseconds);
+    void updateGpuUsage(float percentage);
 
     /**
      * @brief Render the stats panel
@@ -31,6 +32,7 @@ private:
     float m_cpuUsage;    // Percentage (0-100)
     float m_ramUsage;    // Percentage (0-100)
     float m_latency;     // Milliseconds
+    float m_gpuUsage;    // Percentage (0-100)
 
     static constexpr int STAT_PADDING = 15;
     static constexpr int TEXT_HEIGHT = 20;
