@@ -16,6 +16,7 @@ struct AVCodecContext;
 struct AVFrame;
 struct AVPacket;
 struct SwsContext;
+struct AVBufferRef;
 }
 
 namespace camera_viewer {
@@ -30,7 +31,7 @@ class CameraStream {
 public:
     using FrameCallback = std::function<void(int cameraIndex, SDL_Texture* texture, const CameraStats& stats)>;
     
-    explicit CameraStream(int cameraIndex, const CameraConfig& config, SDL_Renderer* renderer);
+    explicit CameraStream(int cameraIndex, const CameraConfig& config, SDL_Renderer* renderer, DecodeMode decodeMode);
     ~CameraStream();
     
     // Disable copy
@@ -130,6 +131,7 @@ private:
     int m_cameraIndex;
     CameraConfig m_config;
     StreamQuality m_currentQuality;
+    DecodeMode m_decodeMode;
     
     // SDL renderer (not owned)
     SDL_Renderer* m_renderer;
@@ -159,6 +161,7 @@ private:
     AVPacket* m_packet = nullptr;
     SwsContext* m_swsCtx = nullptr;
     int m_videoStreamIndex = -1;
+    AVBufferRef* m_hwDeviceCtx = nullptr;
     
     // Statistics
     mutable std::mutex m_statsMutex;

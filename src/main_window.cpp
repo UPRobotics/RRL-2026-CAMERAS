@@ -8,10 +8,14 @@
 #include "settings_manager.h"
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <regex>
+#include <fstream>
+#include <sstream>
+#include <unistd.h>
 
 namespace camera_viewer {
 
-MainWindow::MainWindow(const std::string& title, int width, int height)
+MainWindow::MainWindow(const std::string& title, int width, int height, DecodeMode decodeMode)
     : m_title(title)
     , m_windowWidth(width)
     , m_windowHeight(height)
@@ -25,6 +29,10 @@ MainWindow::MainWindow(const std::string& title, int width, int height)
     , m_activeCameraCount(4)
     , m_mainAreaY(TOOLBAR_HEIGHT)
     , m_mainAreaHeight(height - TOOLBAR_HEIGHT - STATSBAR_HEIGHT)
+    , m_prevProcJiffies(0)
+    , m_prevTotalJiffies(0)
+    , m_hasPrevCpuSample(false)
+    , m_decodeMode(decodeMode)
 {
 }
 
@@ -102,6 +110,7 @@ bool MainWindow::initialize() {
     
     // Initialize camera manager
     m_cameraManager = std::make_unique<CameraManager>(m_renderer);
+    m_cameraManager->setDecodeMode(m_decodeMode);
     m_cameraManager->setCameraConfigs(settings.getCameraConfigs());
     m_cameraManager->setStreamingSettings(settings.getStreamingSettings());
     
@@ -119,6 +128,11 @@ bool MainWindow::initialize() {
     auto availableIndices = m_cameraManager->getAvailableCameraIndices();
     m_cameraGrid->setAvailableCameraIndices(availableIndices);
     m_activeCameraCount = available;
+    if (!availableIndices.empty()) {
+        int firstIdx = availableIndices.front();
+        m_pingCameraIp = m_cameraManager->getCameraConfig(firstIdx).ip;
+        spdlog::info("Telemetry ping target set to camera {} ({})", firstIdx + 1, m_pingCameraIp);
+    }
     
     spdlog::info("Found {} available cameras", available);
 
@@ -171,6 +185,7 @@ bool MainWindow::initialize() {
     m_toolbarButtons.push_back(consoleBtn);
 
     m_isInitialized = true;
+    startTelemetry();
     spdlog::info("MainWindow initialized successfully ({}x{})", m_windowWidth, m_windowHeight);
     return true;
 }
@@ -336,6 +351,13 @@ void MainWindow::render() {
     if (m_cameraManager) {
         m_cameraManager->updateTexturesFromMainThread();
         m_cameraManager->checkAutoRecovery();
+    }
+
+    // Pull latest telemetry values (updated by background thread once per second)
+    if (m_statsPanel) {
+        m_statsPanel->updateCpuUsage(m_cpuUsageAtomic.load());
+        m_statsPanel->updateRamUsage(m_ramUsageAtomic.load());
+        m_statsPanel->updateLatency(m_latencyAtomic.load());
     }
     
     // Clear screen
@@ -530,6 +552,7 @@ void MainWindow::shutdown() {
     if (!m_isInitialized) return;
 
     spdlog::info("Shutting down MainWindow");
+    stopTelemetry();
     
     // Stop all camera streams first
     if (m_cameraManager) {
@@ -567,6 +590,142 @@ void MainWindow::shutdown() {
     FontManager::instance().shutdown();
     SDL_Quit();
     m_isInitialized = false;
+}
+
+void MainWindow::startTelemetry() {
+    if (m_telemetryRunning) return;
+    m_telemetryRunning = true;
+    m_telemetryThread = std::thread(&MainWindow::telemetryLoop, this);
+}
+
+void MainWindow::stopTelemetry() {
+    m_telemetryRunning = false;
+    if (m_telemetryThread.joinable()) {
+        m_telemetryThread.join();
+    }
+}
+
+float MainWindow::pingCameraMs() {
+    if (m_pingCameraIp.empty()) {
+        return 0.0f;
+    }
+
+    // Use system ping for simplicity; timeout 1s
+    int timeoutSec = 1;
+    std::string cmd = "ping -c 1 -W " + std::to_string(timeoutSec) + " " + m_pingCameraIp;
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) {
+        return 0.0f;
+    }
+
+    char buffer[256];
+    std::string output;
+    while (fgets(buffer, sizeof(buffer), pipe)) {
+        output += buffer;
+    }
+    pclose(pipe);
+
+    std::regex timeRegex("time=([0-9.]+) ms");
+    std::smatch match;
+    if (std::regex_search(output, match, timeRegex) && match.size() > 1) {
+        try {
+            return std::stof(match[1]);
+        } catch (...) {
+            return 0.0f;
+        }
+    }
+
+    return 0.0f; // fallback if ping failed
+}
+
+float MainWindow::sampleProcessCpuPercent() {
+    std::ifstream statFile("/proc/self/stat");
+    if (!statFile.is_open()) return 0.0f;
+
+    std::string line;
+    std::getline(statFile, line);
+    std::istringstream iss(line);
+
+    // Fields: pid (1), comm (2), state (3), ... utime (14), stime (15), cutime (16), cstime (17)
+    std::string tmp;
+    long utime = 0, stime = 0, cutime = 0, cstime = 0;
+    for (int i = 1; i <= 17; ++i) {
+        iss >> tmp;
+        if (i == 14) utime = std::stol(tmp);
+        if (i == 15) stime = std::stol(tmp);
+        if (i == 16) cutime = std::stol(tmp);
+        if (i == 17) cstime = std::stol(tmp);
+    }
+
+    uint64_t procJiffies = static_cast<uint64_t>(utime + stime + cutime + cstime);
+
+    // Total jiffies from /proc/stat
+    std::ifstream totalFile("/proc/stat");
+    if (!totalFile.is_open()) return 0.0f;
+    std::string cpuLine;
+    std::getline(totalFile, cpuLine);
+    std::istringstream cpuStream(cpuLine);
+    cpuStream >> tmp; // skip "cpu"
+    uint64_t user = 0, nice = 0, system = 0, idle = 0, iowait = 0, irq = 0, softirq = 0, steal = 0;
+    cpuStream >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> steal;
+    uint64_t totalJiffies = user + nice + system + idle + iowait + irq + softirq + steal;
+
+    float percent = 0.0f;
+    if (m_hasPrevCpuSample) {
+        uint64_t deltaProc = procJiffies - m_prevProcJiffies;
+        uint64_t deltaTotal = totalJiffies - m_prevTotalJiffies;
+        if (deltaTotal > 0) {
+            long cpus = sysconf(_SC_NPROCESSORS_ONLN);
+            if (cpus < 1) cpus = 1;
+            percent = (static_cast<float>(deltaProc) / static_cast<float>(deltaTotal)) * 100.0f / cpus;
+        }
+    }
+
+    m_prevProcJiffies = procJiffies;
+    m_prevTotalJiffies = totalJiffies;
+    m_hasPrevCpuSample = true;
+    return percent;
+}
+
+float MainWindow::sampleProcessRamPercent() {
+    long pageSize = sysconf(_SC_PAGESIZE);
+    std::ifstream statm("/proc/self/statm");
+    if (!statm.is_open()) return 0.0f;
+    long size = 0, resident = 0;
+    statm >> size >> resident;
+    uint64_t rssBytes = static_cast<uint64_t>(resident) * static_cast<uint64_t>(pageSize);
+
+    std::ifstream meminfo("/proc/meminfo");
+    if (!meminfo.is_open()) return 0.0f;
+    std::string key;
+    uint64_t memTotalKb = 0;
+    while (meminfo >> key) {
+        if (key == "MemTotal:") {
+            meminfo >> memTotalKb;
+            break;
+        }
+        // skip rest of line
+        std::getline(meminfo, key);
+    }
+    if (memTotalKb == 0) return 0.0f;
+
+    float memTotalBytes = static_cast<float>(memTotalKb) * 1024.0f;
+    return (static_cast<float>(rssBytes) / memTotalBytes) * 100.0f;
+}
+
+void MainWindow::telemetryLoop() {
+    using namespace std::chrono_literals;
+    while (m_telemetryRunning) {
+        float cpu = sampleProcessCpuPercent();
+        float ram = sampleProcessRamPercent();
+        float pingMs = pingCameraMs();
+
+        m_cpuUsageAtomic.store(cpu);
+        m_ramUsageAtomic.store(ram);
+        m_latencyAtomic.store(pingMs);
+
+        std::this_thread::sleep_for(1s);
+    }
 }
 
 } // namespace camera_viewer

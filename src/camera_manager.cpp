@@ -118,7 +118,7 @@ void CameraManager::startAll(StreamQuality quality) {
     for (size_t i = 0; i < m_configs.size(); ++i) {
         if (m_configs[i].available && m_configs[i].enabled) {
             m_streams[i] = std::make_unique<CameraStream>(
-                static_cast<int>(i), m_configs[i], m_renderer);
+                static_cast<int>(i), m_configs[i], m_renderer, m_decodeMode);
             
             if (m_streams[i]->start(quality)) {
                 startedCount++;
@@ -173,7 +173,7 @@ bool CameraManager::startCamera(int index, StreamQuality quality) {
         m_streams[index]->stop();
     }
     
-    m_streams[index] = std::make_unique<CameraStream>(index, m_configs[index], m_renderer);
+    m_streams[index] = std::make_unique<CameraStream>(index, m_configs[index], m_renderer, m_decodeMode);
     return m_streams[index]->start(quality);
 }
 

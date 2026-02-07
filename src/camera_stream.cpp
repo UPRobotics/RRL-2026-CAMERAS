@@ -8,14 +8,16 @@ extern "C" {
 #include <libswscale/swscale.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
+#include <libavutil/hwcontext.h>
 }
 
 namespace camera_viewer {
 
-CameraStream::CameraStream(int cameraIndex, const CameraConfig& config, SDL_Renderer* renderer)
+CameraStream::CameraStream(int cameraIndex, const CameraConfig& config, SDL_Renderer* renderer, DecodeMode decodeMode)
     : m_cameraIndex(cameraIndex)
     , m_config(config)
     , m_currentQuality(StreamQuality::High)
+    , m_decodeMode(decodeMode)
     , m_renderer(renderer)
 {
     m_stats.state = CameraState::Disconnected;
@@ -155,6 +157,17 @@ void CameraStream::decoderThread() {
     spdlog::debug("Camera {} decoder thread ended", m_cameraIndex + 1);
 }
 
+static enum AVPixelFormat get_hw_format(AVCodecContext* ctx, const enum AVPixelFormat* pix_fmts) {
+    (void)ctx;
+    const enum AVPixelFormat* p;
+    for (p = pix_fmts; *p != AV_PIX_FMT_NONE; p++) {
+        if (*p == AV_PIX_FMT_CUDA) {
+            return *p;
+        }
+    }
+    return pix_fmts[0];
+}
+
 bool CameraStream::initDecoder(const std::string& url) {
     {
         std::lock_guard<std::mutex> lock(m_statsMutex);
@@ -219,9 +232,31 @@ bool CameraStream::initDecoder(const std::string& url) {
         return false;
     }
     
-    // Find decoder
-    const AVCodec* codec = avcodec_find_decoder(
-        m_formatCtx->streams[m_videoStreamIndex]->codecpar->codec_id);
+    // Find decoder (CPU or GPU)
+    const AVCodec* codec = nullptr;
+    const AVCodecID cid = m_formatCtx->streams[m_videoStreamIndex]->codecpar->codec_id;
+    if (m_decodeMode == DecodeMode::GPU) {
+        const char* name = nullptr;
+        switch (cid) {
+            case AV_CODEC_ID_H264: name = "h264_cuvid"; break;
+            case AV_CODEC_ID_HEVC: name = "hevc_cuvid"; break;
+            case AV_CODEC_ID_MPEG2VIDEO: name = "mpeg2_cuvid"; break;
+            case AV_CODEC_ID_MPEG4: name = "mpeg4_cuvid"; break;
+            case AV_CODEC_ID_VP8: name = "vp8_cuvid"; break;
+            case AV_CODEC_ID_VP9: name = "vp9_cuvid"; break;
+            case AV_CODEC_ID_AV1: name = "av1_cuvid"; break;
+            default: break;
+        }
+        if (name) {
+            codec = avcodec_find_decoder_by_name(name);
+            if (!codec) {
+                spdlog::warn("Camera {} GPU decoder {} not found, falling back to CPU", m_cameraIndex + 1, name);
+            }
+        }
+    }
+    if (!codec) {
+        codec = avcodec_find_decoder(cid);
+    }
     if (!codec) {
         spdlog::error("Camera {} unsupported codec", m_cameraIndex + 1);
         avformat_close_input(&m_formatCtx);
@@ -246,6 +281,17 @@ bool CameraStream::initDecoder(const std::string& url) {
         return false;
     }
     
+    // Hardware device (CUDA) if requested
+    if (m_decodeMode == DecodeMode::GPU) {
+        if (av_hwdevice_ctx_create(&m_hwDeviceCtx, AV_HWDEVICE_TYPE_CUDA, nullptr, nullptr, 0) < 0) {
+            spdlog::warn("Camera {} failed to create CUDA hwdevice, falling back to CPU", m_cameraIndex + 1);
+            m_decodeMode = DecodeMode::CPU;
+        } else {
+            m_codecCtx->get_format = get_hw_format;
+            m_codecCtx->hw_device_ctx = av_buffer_ref(m_hwDeviceCtx);
+        }
+    }
+
     // Set codec options for low latency
     m_codecCtx->flags |= AV_CODEC_FLAG_LOW_DELAY;
     m_codecCtx->flags2 |= AV_CODEC_FLAG2_FAST;
@@ -256,6 +302,10 @@ bool CameraStream::initDecoder(const std::string& url) {
         spdlog::error("Camera {} failed to open codec", m_cameraIndex + 1);
         avcodec_free_context(&m_codecCtx);
         avformat_close_input(&m_formatCtx);
+        if (m_hwDeviceCtx) {
+            av_buffer_unref(&m_hwDeviceCtx);
+            m_hwDeviceCtx = nullptr;
+        }
         return false;
     }
     
@@ -288,6 +338,11 @@ void CameraStream::cleanupDecoder() {
     if (m_swsCtx) {
         sws_freeContext(m_swsCtx);
         m_swsCtx = nullptr;
+    }
+
+    if (m_hwDeviceCtx) {
+        av_buffer_unref(&m_hwDeviceCtx);
+        m_hwDeviceCtx = nullptr;
     }
     
     if (m_packet) {
@@ -359,9 +414,23 @@ bool CameraStream::decodeFrame() {
         }
         return false; // Error
     }
+
+    AVFrame* usableFrame = m_frame;
+    AVFrame* swFrame = nullptr;
+    if (m_decodeMode == DecodeMode::GPU && m_frame->format == AV_PIX_FMT_CUDA) {
+        swFrame = av_frame_alloc();
+        if (swFrame && av_hwframe_transfer_data(swFrame, m_frame, 0) == 0) {
+            usableFrame = swFrame; // use downloaded frame
+        } else {
+            spdlog::warn("Camera {} failed to transfer hw frame to system memory, skipping", m_cameraIndex + 1);
+            if (swFrame) av_frame_free(&swFrame);
+            av_frame_unref(m_frame);
+            return true;
+        }
+    }
     
     // Update texture with decoded frame
-    if (!updateTexture(m_frame)) {
+    if (!updateTexture(usableFrame)) {
         std::lock_guard<std::mutex> lock(m_statsMutex);
         m_stats.dropped_frames++;
     } else {
@@ -393,6 +462,9 @@ bool CameraStream::decodeFrame() {
         }
     }
     
+    if (swFrame) {
+        av_frame_free(&swFrame);
+    }
     av_frame_unref(m_frame);
     return true;
 }

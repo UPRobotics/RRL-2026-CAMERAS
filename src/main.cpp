@@ -11,6 +11,7 @@ extern "C" {
 
 // Global debug flag
 bool g_debugMode = false;
+camera_viewer::DecodeMode g_decodeMode = camera_viewer::DecodeMode::GPU;
 
 // FFmpeg log callback for debug mode - show ALL messages
 // Using fprintf directly to avoid potential spdlog threading issues
@@ -67,6 +68,10 @@ int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; ++i) {
         if (strcmp(argv[i], "--debug") == 0 || strcmp(argv[i], "-d") == 0) {
             g_debugMode = true;
+        } else if (strcmp(argv[i], "--cpu") == 0) {
+            g_decodeMode = camera_viewer::DecodeMode::CPU;
+        } else if (strcmp(argv[i], "--gpu") == 0) {
+            g_decodeMode = camera_viewer::DecodeMode::GPU;
         }
     }
     
@@ -89,7 +94,7 @@ int main(int argc, char* argv[]) {
     camera_viewer::SettingsManager::instance().load();
     
     // Create main window
-    camera_viewer::MainWindow mainWindow("RTSP Camera Viewer - Multi-Camera Monitor", 1280, 720);
+    camera_viewer::MainWindow mainWindow("RTSP Camera Viewer - Multi-Camera Monitor", 1280, 720, g_decodeMode);
     
     // Initialize
     if (!mainWindow.initialize()) {

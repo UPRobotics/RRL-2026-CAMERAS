@@ -26,6 +26,12 @@ enum class CameraState {
     Error           // Fatal error
 };
 
+// Decode mode
+enum class DecodeMode {
+    CPU,
+    GPU
+};
+
 // Camera configuration from settings.json
 struct CameraConfig {
     std::string id;

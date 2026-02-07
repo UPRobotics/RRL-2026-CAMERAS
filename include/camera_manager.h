@@ -40,6 +40,11 @@ public:
      * @brief Set streaming settings
      */
     void setStreamingSettings(const StreamingSettings& settings);
+
+    /**
+     * @brief Set decode mode (CPU or GPU)
+     */
+    void setDecodeMode(DecodeMode mode) { m_decodeMode = mode; }
     
     /**
      * @brief Discover available cameras by pinging their IPs
@@ -178,6 +183,7 @@ private:
     // Settings
     StreamingSettings m_settings;
     StreamQuality m_currentQuality = StreamQuality::High;
+    DecodeMode m_decodeMode = DecodeMode::GPU;
     
     // Callbacks
     StateChangeCallback m_stateChangeCallback;

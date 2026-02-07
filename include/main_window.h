@@ -5,6 +5,10 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <thread>
+#include <atomic>
+#include <chrono>
+#include "types.h"
 
 namespace camera_viewer {
 
@@ -56,7 +60,7 @@ enum class ViewMode {
  */
 class MainWindow {
 public:
-    MainWindow(const std::string& title, int width, int height);
+    MainWindow(const std::string& title, int width, int height, DecodeMode decodeMode = DecodeMode::GPU);
     ~MainWindow();
 
     // Delete copy constructor and assignment
@@ -99,6 +103,14 @@ private:
     void onToggleConsoleClicked();
     void onViewModeChanged(ViewMode mode);
     void toggleFullscreen();
+    
+    // Telemetry
+    void startTelemetry();
+    void stopTelemetry();
+    void telemetryLoop();
+    float sampleProcessCpuPercent();
+    float sampleProcessRamPercent();
+    float pingCameraMs();
 
     // Window properties
     std::string m_title;
@@ -129,6 +141,8 @@ private:
     std::unique_ptr<CameraGrid> m_cameraGrid;
     std::unique_ptr<CameraManager> m_cameraManager;
 
+    DecodeMode m_decodeMode;
+
     // Button states (for hover effects)
     struct ButtonRect {
         SDL_Rect rect;
@@ -139,6 +153,17 @@ private:
     std::vector<ButtonRect> m_toolbarButtons;
     int m_mainAreaY;
     int m_mainAreaHeight;
+
+    // Telemetry state
+    std::thread m_telemetryThread;
+    std::atomic<bool> m_telemetryRunning{false};
+    std::atomic<float> m_cpuUsageAtomic{0.0f};
+    std::atomic<float> m_ramUsageAtomic{0.0f};
+    std::atomic<float> m_latencyAtomic{0.0f};
+    std::string m_pingCameraIp;
+    uint64_t m_prevProcJiffies = 0;
+    uint64_t m_prevTotalJiffies = 0;
+    bool m_hasPrevCpuSample = false;
 };
 
 } // namespace camera_viewer
