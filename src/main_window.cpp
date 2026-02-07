@@ -317,6 +317,18 @@ void MainWindow::handleKeyPress(SDL_Keycode key) {
             spdlog::info("Switched to Camera {}", realCamNum);
         }
     }
+    else if (key == SDLK_r) {
+        // Rotate current camera 90 degrees clockwise (persistent) when in fullscreen
+        if (m_currentViewMode == ViewMode::FULLSCREEN && m_cameraGrid && m_cameraGrid->getAvailableCameraCount() > 0) {
+            int realIndex = m_cameraGrid->getSelectedRealCameraIndex();
+            if (realIndex >= 0 && m_cameraManager) {
+                int currentRotation = m_cameraManager->getCameraRotation(realIndex);
+                int nextRotation = (currentRotation + 90) % 360;
+                m_cameraManager->setCameraRotation(realIndex, nextRotation);
+                spdlog::info("Camera {} rotation set to {} degrees", realIndex + 1, nextRotation);
+            }
+        }
+    }
 }
 
 void MainWindow::render() {

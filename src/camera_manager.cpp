@@ -1,4 +1,5 @@
 #include "camera_manager.h"
+#include "settings_manager.h"
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <numeric>
@@ -215,6 +216,30 @@ const CameraConfig& CameraManager::getCameraConfig(int index) const {
         return empty;
     }
     return m_configs[index];
+}
+
+int CameraManager::getCameraRotation(int index) const {
+    std::lock_guard<std::mutex> lock(m_configMutex);
+    if (index < 0 || index >= static_cast<int>(m_configs.size())) {
+        return 0;
+    }
+    return m_configs[index].rotation_deg;
+}
+
+void CameraManager::setCameraRotation(int index, int rotationDeg) {
+    {
+        std::lock_guard<std::mutex> lock(m_configMutex);
+        if (index < 0 || index >= static_cast<int>(m_configs.size())) {
+            return;
+        }
+        rotationDeg %= 360;
+        if (rotationDeg < 0) rotationDeg += 360;
+        if (rotationDeg % 90 != 0) rotationDeg = 0;
+        m_configs[index].rotation_deg = rotationDeg;
+    }
+
+    // Persist to settings.json
+    SettingsManager::instance().setCameraRotation(index, rotationDeg);
 }
 
 CameraStats CameraManager::getCameraStats(int index) const {

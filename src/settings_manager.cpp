@@ -11,6 +11,27 @@ SettingsManager& SettingsManager::instance() {
     return instance;
 }
 
+    int SettingsManager::getCameraRotation(int index) const {
+        if (index < 0 || index >= static_cast<int>(m_cameraConfigs.size())) {
+            return 0;
+        }
+        return m_cameraConfigs[index].rotation_deg;
+    }
+
+    void SettingsManager::setCameraRotation(int index, int rotationDeg, const std::string& filepath) {
+        if (index < 0 || index >= static_cast<int>(m_cameraConfigs.size())) {
+            return;
+        }
+        // Normalize to 0/90/180/270
+        rotationDeg %= 360;
+        if (rotationDeg < 0) rotationDeg += 360;
+        if (rotationDeg % 90 != 0) {
+            rotationDeg = 0;
+        }
+        m_cameraConfigs[index].rotation_deg = rotationDeg;
+        save(filepath);
+    }
+
 bool SettingsManager::load(const std::string& filepath) {
     try {
         std::ifstream file(filepath);
@@ -67,6 +88,7 @@ bool SettingsManager::load(const std::string& filepath) {
                 config.url_highres = cam.value("url_highres", "");
                 config.url_lowres = cam.value("url_lowres", "");
                 config.enabled = cam.value("enabled", true);
+                config.rotation_deg = cam.value("rotation_deg", 0);
                 config.available = false; // Will be set by discovery
                 m_cameraConfigs.push_back(config);
             }
@@ -110,6 +132,7 @@ bool SettingsManager::save(const std::string& filepath) {
             cam["url_highres"] = config.url_highres;
             cam["url_lowres"] = config.url_lowres;
             cam["enabled"] = config.enabled;
+            cam["rotation_deg"] = config.rotation_deg;
             cameras.push_back(cam);
         }
         j["cameras"] = cameras;

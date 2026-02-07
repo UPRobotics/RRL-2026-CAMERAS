@@ -75,6 +75,10 @@ public:
      */
     const std::vector<CameraConfig>& getCameraConfigs() const { return m_cameraConfigs; }
     const StreamingSettings& getStreamingSettings() const { return m_streamingSettings; }
+
+    // Camera rotation helpers
+    int getCameraRotation(int index) const;
+    void setCameraRotation(int index, int rotationDeg, const std::string& filepath = "config/settings.json");
     
 private:
     SettingsManager() = default;

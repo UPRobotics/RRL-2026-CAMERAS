@@ -85,11 +85,6 @@ private:
     void renderPlaceholder(SDL_Renderer* renderer, SDL_Rect rect, int cameraIndex);
 
     /**
-     * @brief Render camera info overlay
-     */
-    void renderCameraOverlay(SDL_Renderer* renderer, SDL_Rect rect, int cameraIndex, const CameraStats& stats);
-
-    /**
      * @brief Calculate destination rect that fits source in target while maintaining aspect ratio
      */
     SDL_Rect calculateFitRect(SDL_Rect target, int srcWidth, int srcHeight);
@@ -100,8 +95,8 @@ private:
     int m_selectedCameraIndex; // For fullscreen mode (index into m_availableCameraIndices)
     int m_selectedRealCameraIndex; // Actual camera number
 
-    static constexpr int CAMERA_GAP = 5;
-    static constexpr int CAMERA_BORDER = 2;
+    static constexpr int CAMERA_GAP = 1;
+    static constexpr int CAMERA_BORDER = 1;
 };
 
 } // namespace camera_viewer

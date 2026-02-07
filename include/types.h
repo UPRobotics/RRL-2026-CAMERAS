@@ -35,6 +35,7 @@ struct CameraConfig {
     std::string url_highres;
     std::string url_lowres;
     bool enabled = true;
+    int rotation_deg = 0; // 0, 90, 180, 270
     
     // Runtime state
     bool available = false;  // Set after ping check

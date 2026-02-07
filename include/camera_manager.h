@@ -98,6 +98,8 @@ public:
      * @brief Get camera configuration
      */
     const CameraConfig& getCameraConfig(int index) const;
+    int getCameraRotation(int index) const;
+    void setCameraRotation(int index, int rotationDeg);
     
     /**
      * @brief Get camera statistics

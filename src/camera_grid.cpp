@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
+#include <vector>
 
 namespace camera_viewer {
 
@@ -72,23 +73,41 @@ void CameraGrid::render(SDL_Renderer* renderer, int x, int y, int width, int hei
             calculateGridLayout(rows, cols);
         }
 
-        // Calculate camera slot dimensions
-        int cameraWidth = (width - CAMERA_GAP * (cols + 1)) / cols;
-        int cameraHeight = (height - CAMERA_GAP * (rows + 1)) / rows;
+        // Calculate camera slot dimensions and distribute any leftover pixels to fully fill the area
+        int totalGapX = CAMERA_GAP * (cols + 1);
+        int totalGapY = CAMERA_GAP * (rows + 1);
+        int baseWidth = (width - totalGapX) / cols;
+        int baseHeight = (height - totalGapY) / rows;
+        int extraWidth = (width - totalGapX) % cols;
+        int extraHeight = (height - totalGapY) % rows;
+
+        std::vector<int> colWidths(cols, baseWidth);
+        for (int i = 0; i < extraWidth; ++i) {
+            colWidths[i] += 1; // spread leftover pixels
+        }
+
+        std::vector<int> rowHeights(rows, baseHeight);
+        for (int i = 0; i < extraHeight; ++i) {
+            rowHeights[i] += 1;
+        }
 
         // Render each available camera slot
         int slotIndex = 0;
+        int cameraY = y + CAMERA_GAP;
         for (int row = 0; row < rows && slotIndex < activeCameraCount; ++row) {
+            int cameraX = x + CAMERA_GAP;
             for (int col = 0; col < cols && slotIndex < activeCameraCount; ++col) {
-                int cameraX = x + CAMERA_GAP + col * (cameraWidth + CAMERA_GAP);
-                int cameraY = y + CAMERA_GAP + row * (cameraHeight + CAMERA_GAP);
+                int cameraWidth = colWidths[col];
+                int cameraHeight = rowHeights[row];
 
                 SDL_Rect cameraRect = {cameraX, cameraY, cameraWidth, cameraHeight};
                 // Use the REAL camera index from available indices
                 int realCameraIndex = m_availableCameraIndices[slotIndex];
                 renderCameraSlot(renderer, cameraRect, realCameraIndex);
                 slotIndex++;
+                cameraX += cameraWidth + CAMERA_GAP;
             }
+            cameraY += rowHeights[row] + CAMERA_GAP;
         }
     }
 }
@@ -148,9 +167,6 @@ void CameraGrid::renderCameraSlot(SDL_Renderer* renderer, SDL_Rect rect, int cam
         renderPlaceholder(renderer, rect, cameraIndex);
     }
 
-    // Render overlay with camera info
-    renderCameraOverlay(renderer, rect, cameraIndex, stats);
-
     // If this camera is selected, draw selection highlight
     // Compare with the REAL camera index
     if (cameraIndex == m_selectedRealCameraIndex) {
@@ -197,14 +213,25 @@ SDL_Rect CameraGrid::calculateFitRect(SDL_Rect target, int srcWidth, int srcHeig
 }
 
 void CameraGrid::renderVideoTexture(SDL_Renderer* renderer, SDL_Rect rect, SDL_Texture* texture, int cameraIndex) {
-    (void)cameraIndex; // May be used later for overlays
-    
+    int rotation = 0;
+    if (m_cameraManager) {
+        rotation = m_cameraManager->getCameraRotation(cameraIndex);
+    }
+
     // Query texture size
     int texW, texH;
     SDL_QueryTexture(texture, nullptr, nullptr, &texW, &texH);
+
+    // If rotated 90/270, swap aspect for fitting
+    int fitW = texW;
+    int fitH = texH;
+    if (rotation % 180 != 0) {
+        fitW = texH;
+        fitH = texW;
+    }
     
     // Calculate destination rect that maintains aspect ratio
-    SDL_Rect destRect = calculateFitRect(rect, texW, texH);
+    SDL_Rect destRect = calculateFitRect(rect, fitW, fitH);
     
     // Fill letterbox/pillarbox areas with black
     if (destRect.x > rect.x || destRect.y > rect.y) {
@@ -212,8 +239,8 @@ void CameraGrid::renderVideoTexture(SDL_Renderer* renderer, SDL_Rect rect, SDL_T
         SDL_RenderFillRect(renderer, &rect);
     }
     
-    // Render the video texture
-    SDL_RenderCopy(renderer, texture, nullptr, &destRect);
+    // Render the video texture with rotation
+    SDL_RenderCopyEx(renderer, texture, nullptr, &destRect, static_cast<double>(rotation), nullptr, SDL_FLIP_NONE);
 }
 
 void CameraGrid::renderPlaceholder(SDL_Renderer* renderer, SDL_Rect rect, int cameraIndex) {
@@ -227,78 +254,6 @@ void CameraGrid::renderPlaceholder(SDL_Renderer* renderer, SDL_Rect rect, int ca
     }
     for (int i = gridSize; i < rect.h; i += gridSize) {
         SDL_RenderDrawLine(renderer, rect.x, rect.y + i, rect.x + rect.w, rect.y + i);
-    }
-}
-
-void CameraGrid::renderCameraOverlay(SDL_Renderer* renderer, SDL_Rect rect, int cameraIndex, const CameraStats& stats) {
-    // Draw semi-transparent overlay at top
-    SDL_Rect overlayRect = {rect.x, rect.y, rect.w, 30};
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 180);
-    SDL_RenderFillRect(renderer, &overlayRect);
-
-    // Get camera name from manager if available
-    std::string cameraName;
-    if (m_cameraManager) {
-        const auto& config = m_cameraManager->getCameraConfig(cameraIndex);
-        cameraName = config.name;
-    }
-    if (cameraName.empty()) {
-        cameraName = "Camera " + std::to_string(cameraIndex + 1);
-    }
-
-    // Draw camera label with status
-    char label[128];
-    const char* stateStr = "";
-    switch (stats.state) {
-        case CameraState::Disconnected: stateStr = "Disconnected"; break;
-        case CameraState::Connecting: stateStr = "Connecting..."; break;
-        case CameraState::Connected: stateStr = ""; break; // Don't show when connected
-        case CameraState::Reconnecting: stateStr = "Reconnecting..."; break;
-        case CameraState::Error: stateStr = "Error"; break;
-    }
-    
-    if (stats.state == CameraState::Connected) {
-        snprintf(label, sizeof(label), "%s [%.1f FPS]", 
-                 cameraName.c_str(), stats.current_fps);
-    } else {
-        snprintf(label, sizeof(label), "%s [%s]", 
-                 cameraName.c_str(), stateStr);
-    }
-    UIHelpers::drawText(renderer, rect.x + 10, rect.y + 8, label, Colors::CAMERA_TEXT, 12);
-
-    // Draw status indicator
-    SDL_Rect statusRect = {rect.x + rect.w - 25, rect.y + 8, 15, 15};
-    
-    SDL_Color statusColor;
-    switch (stats.state) {
-        case CameraState::Connected:
-            statusColor = Colors::CAMERA_ACTIVE;
-            break;
-        case CameraState::Connecting:
-        case CameraState::Reconnecting:
-            statusColor = {255, 165, 0, 255}; // Orange
-            break;
-        case CameraState::Disconnected:
-        case CameraState::Error:
-        default:
-            statusColor = Colors::CAMERA_INACTIVE;
-            break;
-    }
-    
-    SDL_SetRenderDrawColor(renderer, statusColor.r, statusColor.g, statusColor.b, statusColor.a);
-    SDL_RenderFillRect(renderer, &statusRect);
-
-    // Show resolution info at bottom if connected
-    if (stats.state == CameraState::Connected && stats.frame_width > 0) {
-        SDL_Rect bottomOverlay = {rect.x, rect.y + rect.h - 25, rect.w, 25};
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
-        SDL_RenderFillRect(renderer, &bottomOverlay);
-        
-        char resLabel[64];
-        snprintf(resLabel, sizeof(resLabel), "%dx%d | Frames: %lu", 
-                 stats.frame_width, stats.frame_height, stats.total_frames);
-        UIHelpers::drawText(renderer, rect.x + 10, rect.y + rect.h - 18, 
-                           resLabel, Colors::CAMERA_TEXT, 10);
     }
 }
 
