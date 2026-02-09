@@ -96,7 +96,8 @@ bool MainWindow::initialize() {
     }
 
     // Create renderer
-    m_renderer = SDL_CreateRenderer(m_window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    // No VSync — eliminates up to 16.67ms latency per frame
+    m_renderer = SDL_CreateRenderer(m_window, -1, SDL_RENDERER_ACCELERATED);
     if (!m_renderer) {
         spdlog::error("Renderer creation failed: {}", SDL_GetError());
         SDL_DestroyWindow(m_window);
@@ -205,10 +206,16 @@ void MainWindow::run() {
     m_statsPanel->updateRamUsage(42.3f);
     m_statsPanel->updateLatency(45.2f);
 
+    Uint32 frameStart;
     while (m_running) {
+        frameStart = SDL_GetTicks();
         handleEvents();
         render();
-        SDL_Delay(16); // ~60 FPS
+        // Cap at ~240 FPS (4ms) - minimizes display lag for new frames
+        Uint32 elapsed = SDL_GetTicks() - frameStart;
+        if (elapsed < 4) {
+            SDL_Delay(4 - elapsed);
+        }
     }
 
     spdlog::info("Main application loop ended");

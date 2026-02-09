@@ -1,6 +1,8 @@
 #include "camera_stream.h"
 #include <spdlog/spdlog.h>
 #include <chrono>
+#include <algorithm>
+#include <cstring>
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -181,18 +183,20 @@ bool CameraStream::initDecoder(const std::string& url) {
         return false;
     }
     
-    // Set RTSP options for low latency and compatibility
+    // Set RTSP options for absolute minimum latency
     AVDictionary* opts = nullptr;
-    av_dict_set(&opts, "rtsp_transport", "tcp", 0);  // Use TCP (required by this camera)
-    av_dict_set(&opts, "rtsp_flags", "prefer_tcp", 0); // Prefer TCP transport
-    av_dict_set(&opts, "stimeout", "10000000", 0);   // 10 second timeout (in microseconds)
-    av_dict_set(&opts, "analyzeduration", "1000000", 0); // 1 second analyze
-    av_dict_set(&opts, "probesize", "1000000", 0);   // 1MB probe size
-    av_dict_set(&opts, "fflags", "nobuffer+discardcorrupt", 0); // Reduce buffering, discard corrupt
-    av_dict_set(&opts, "flags", "low_delay", 0);     // Low delay mode
-    av_dict_set(&opts, "max_delay", "500000", 0);    // 500ms max delay
-    av_dict_set(&opts, "reorder_queue_size", "0", 0); // No reorder buffer
-    av_dict_set(&opts, "buffer_size", "1024000", 0); // 1MB buffer
+    av_dict_set(&opts, "rtsp_transport", "tcp", 0);
+    av_dict_set(&opts, "rtsp_flags", "prefer_tcp", 0);
+    av_dict_set(&opts, "stimeout", "5000000", 0);        // 5s connection timeout
+    av_dict_set(&opts, "analyzeduration", "0", 0);       // No analysis delay
+    av_dict_set(&opts, "probesize", "8192", 0);          // 8KB - absolute minimum for H.265 SPS/PPS
+    av_dict_set(&opts, "fflags", "nobuffer+discardcorrupt+flush_packets+genpts", 0);
+    av_dict_set(&opts, "flags", "low_delay", 0);
+    av_dict_set(&opts, "max_delay", "0", 0);
+    av_dict_set(&opts, "reorder_queue_size", "0", 0);
+    av_dict_set(&opts, "buffer_size", "65536", 0);       // 64KB socket buffer - minimal
+    av_dict_set(&opts, "max_interleave_delta", "0", 0);  // No interleave buffering
+    av_dict_set(&opts, "avioflags", "direct", 0);        // Direct I/O - bypass internal buffering
     
     spdlog::info("Camera {} connecting to: {}", m_cameraIndex + 1, url);
     
@@ -209,8 +213,14 @@ bool CameraStream::initDecoder(const std::string& url) {
         return false;
     }
     
-    // Find stream info
+    // Find stream info - use minimal analysis for speed
+    AVDictionary* findOpts = nullptr;
+    av_dict_set(&findOpts, "analyzeduration", "0", 0);
+    av_dict_set(&findOpts, "probesize", "8192", 0);
+    m_formatCtx->max_analyze_duration = 0;  // Bypass analysis entirely
+    m_formatCtx->fps_probe_size = 0;        // Don't probe for FPS
     ret = avformat_find_stream_info(m_formatCtx, nullptr);
+    av_dict_free(&findOpts);
     if (ret < 0) {
         spdlog::error("Camera {} failed to find stream info", m_cameraIndex + 1);
         avformat_close_input(&m_formatCtx);
@@ -292,12 +302,26 @@ bool CameraStream::initDecoder(const std::string& url) {
         }
     }
 
-    // Set codec options for low latency
+    // Set codec options for absolute minimum latency
     m_codecCtx->flags |= AV_CODEC_FLAG_LOW_DELAY;
+    m_codecCtx->flags |= AV_CODEC_FLAG_OUTPUT_CORRUPT;   // Output incomplete frames rather than waiting
     m_codecCtx->flags2 |= AV_CODEC_FLAG2_FAST;
+    m_codecCtx->flags2 |= AV_CODEC_FLAG2_CHUNKS;         // Allow input not split at frame boundaries
+    m_codecCtx->thread_count = 1;
+    m_codecCtx->thread_type = 0;
+    m_codecCtx->delay = 0;
+    m_codecCtx->has_b_frames = 0;                         // Assert no B-frames (camera streams don't use them)
+    m_codecCtx->skip_loop_filter = AVDISCARD_ALL;         // Skip ALL deblocking (max speed)
+    m_codecCtx->skip_idct = AVDISCARD_NONKEY;
+    m_codecCtx->skip_frame = AVDISCARD_DEFAULT;           // Only skip if decoder wants to
+    m_codecCtx->err_recognition = 0;                      // Ignore errors, keep decoding
+    m_codecCtx->error_concealment = FF_EC_GUESS_MVS | FF_EC_DEBLOCK; // Conceal errors quickly
     
     // Open codec
-    ret = avcodec_open2(m_codecCtx, codec, nullptr);
+    AVDictionary* codecOpts = nullptr;
+    av_dict_set(&codecOpts, "threads", "1", 0);
+    ret = avcodec_open2(m_codecCtx, codec, &codecOpts);
+    av_dict_free(&codecOpts);
     if (ret < 0) {
         spdlog::error("Camera {} failed to open codec", m_cameraIndex + 1);
         avcodec_free_context(&m_codecCtx);
@@ -406,66 +430,68 @@ bool CameraStream::decodeFrame() {
         return ret == AVERROR(EAGAIN); // Continue if decoder is full
     }
     
-    // Receive decoded frame
-    ret = avcodec_receive_frame(m_codecCtx, m_frame);
-    if (ret < 0) {
-        if (ret == AVERROR(EAGAIN)) {
-            return true; // Need more packets
+    // Drain ALL available decoded frames immediately (don't leave frames buffered)
+    bool gotFrame = false;
+    while (true) {
+        ret = avcodec_receive_frame(m_codecCtx, m_frame);
+        if (ret < 0) {
+            break; // EAGAIN or error
         }
-        return false; // Error
-    }
+        gotFrame = true;
 
-    AVFrame* usableFrame = m_frame;
-    AVFrame* swFrame = nullptr;
-    if (m_decodeMode == DecodeMode::GPU && m_frame->format == AV_PIX_FMT_CUDA) {
-        swFrame = av_frame_alloc();
-        if (swFrame && av_hwframe_transfer_data(swFrame, m_frame, 0) == 0) {
-            usableFrame = swFrame; // use downloaded frame
-        } else {
-            spdlog::warn("Camera {} failed to transfer hw frame to system memory, skipping", m_cameraIndex + 1);
-            if (swFrame) av_frame_free(&swFrame);
-            av_frame_unref(m_frame);
-            return true;
-        }
-    }
-    
-    // Update texture with decoded frame
-    if (!updateTexture(usableFrame)) {
-        std::lock_guard<std::mutex> lock(m_statsMutex);
-        m_stats.dropped_frames++;
-    } else {
-        // Update stats
-        auto now = std::chrono::steady_clock::now();
-        {
-            std::lock_guard<std::mutex> lock(m_statsMutex);
-            m_stats.total_frames++;
-            m_stats.last_frame_time = now;
-            m_frameCountSinceLastUpdate++;
-            
-            // Calculate FPS every second
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                now - m_lastFpsUpdate);
-            if (elapsed.count() >= 1000) {
-                m_stats.current_fps = m_frameCountSinceLastUpdate * 1000.0f / elapsed.count();
-                m_frameCountSinceLastUpdate = 0;
-                m_lastFpsUpdate = now;
+        AVFrame* usableFrame = m_frame;
+        AVFrame* swFrame = nullptr;
+        if (m_decodeMode == DecodeMode::GPU && m_frame->format == AV_PIX_FMT_CUDA) {
+            swFrame = av_frame_alloc();
+            if (swFrame && av_hwframe_transfer_data(swFrame, m_frame, 0) == 0) {
+                usableFrame = swFrame;
+            } else {
+                spdlog::warn("Camera {} failed to transfer hw frame to system memory, skipping", m_cameraIndex + 1);
+                if (swFrame) av_frame_free(&swFrame);
+                av_frame_unref(m_frame);
+                continue;
             }
         }
         
-        // Call frame callback if set
-        {
-            std::lock_guard<std::mutex> lock(m_callbackMutex);
-            if (m_frameCallback) {
-                std::lock_guard<std::mutex> texLock(m_textureMutex);
-                m_frameCallback(m_cameraIndex, m_texture, getStats());
+        // Update texture with decoded frame
+        if (!updateTexture(usableFrame)) {
+            std::lock_guard<std::mutex> lock(m_statsMutex);
+            m_stats.dropped_frames++;
+        } else {
+            auto now = std::chrono::steady_clock::now();
+            {
+                std::lock_guard<std::mutex> lock(m_statsMutex);
+                m_stats.total_frames++;
+                m_stats.last_frame_time = now;
+                m_frameCountSinceLastUpdate++;
+                
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - m_lastFpsUpdate);
+                if (elapsed.count() >= 1000) {
+                    m_stats.current_fps = m_frameCountSinceLastUpdate * 1000.0f / elapsed.count();
+                    m_frameCountSinceLastUpdate = 0;
+                    m_lastFpsUpdate = now;
+                }
+            }
+            
+            {
+                std::lock_guard<std::mutex> lock(m_callbackMutex);
+                if (m_frameCallback) {
+                    std::lock_guard<std::mutex> texLock(m_textureMutex);
+                    m_frameCallback(m_cameraIndex, m_texture, getStats());
+                }
             }
         }
+        
+        if (swFrame) {
+            av_frame_free(&swFrame);
+        }
+        av_frame_unref(m_frame);
     }
     
-    if (swFrame) {
-        av_frame_free(&swFrame);
+    if (!gotFrame && ret != AVERROR(EAGAIN)) {
+        return false; // Real error
     }
-    av_frame_unref(m_frame);
     return true;
 }
 
@@ -501,7 +527,7 @@ bool CameraStream::updateTexture(AVFrame* frame) {
         m_swsCtx = sws_getContext(
             frame->width, frame->height, srcFormat,
             frame->width, frame->height, targetFormat,
-            SWS_BILINEAR, nullptr, nullptr, nullptr
+            SWS_POINT, nullptr, nullptr, nullptr  // Nearest-neighbor: fastest conversion
         );
         
         if (!m_swsCtx) {
@@ -607,18 +633,33 @@ bool CameraStream::updateTextureFromMainThread() {
                     m_cameraIndex + 1, actualFormat, access, w, h);
     }
     
-    // Update texture with pending frame data
-    int ret = SDL_UpdateTexture(
-        m_texture,
-        nullptr,
-        m_pendingFrameData.data(),
-        m_pendingFramePitch
-    );
-    
-    if (ret < 0) {
-        spdlog::warn("Camera {} failed to update texture: {}", 
+    // Use SDL_LockTexture for zero-copy upload to streaming texture
+    void* texPixels = nullptr;
+    int texPitch = 0;
+    if (SDL_LockTexture(m_texture, nullptr, &texPixels, &texPitch) == 0) {
+        // Copy row-by-row if pitch differs, otherwise bulk copy
+        if (texPitch == m_pendingFramePitch) {
+            memcpy(texPixels, m_pendingFrameData.data(), m_pendingFramePitch * m_pendingFrameHeight);
+        } else {
+            const uint8_t* src = m_pendingFrameData.data();
+            uint8_t* dst = static_cast<uint8_t*>(texPixels);
+            int rowBytes = std::min(texPitch, m_pendingFramePitch);
+            for (int row = 0; row < m_pendingFrameHeight; ++row) {
+                memcpy(dst, src, rowBytes);
+                src += m_pendingFramePitch;
+                dst += texPitch;
+            }
+        }
+        SDL_UnlockTexture(m_texture);
+    } else {
+        spdlog::warn("Camera {} SDL_LockTexture failed: {}, falling back to UpdateTexture",
                     m_cameraIndex + 1, SDL_GetError());
-        return false;
+        int ret = SDL_UpdateTexture(m_texture, nullptr, m_pendingFrameData.data(), m_pendingFramePitch);
+        if (ret < 0) {
+            spdlog::warn("Camera {} failed to update texture: {}",
+                        m_cameraIndex + 1, SDL_GetError());
+            return false;
+        }
     }
     
     m_hasPendingFrame.store(false);
