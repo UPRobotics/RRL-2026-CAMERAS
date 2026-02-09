@@ -88,6 +88,14 @@
     "remember_window_position": true,
     "remember_window_size": true
   },
+  "grid_2x2": {
+    "slots": [
+      5,
+      5,
+      0,
+      0
+    ]
+  },
   "keybindings": {
     "camera_next": "Right",
     "camera_previous": "Left",

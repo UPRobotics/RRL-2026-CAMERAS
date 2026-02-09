@@ -130,6 +130,10 @@ bool MainWindow::initialize() {
     auto availableIndices = m_cameraManager->getAvailableCameraIndices();
     m_cameraGrid->setAvailableCameraIndices(availableIndices);
     m_activeCameraCount = available;
+    
+    // Load persistent 2x2 slot assignments
+    m_cameraGrid->set2x2SlotAssignments(settings.getGrid2x2Slots());
+    
     if (!availableIndices.empty()) {
         int firstIdx = availableIndices.front();
         m_pingCameraIp = m_cameraManager->getCameraConfig(firstIdx).ip;
@@ -350,6 +354,27 @@ void MainWindow::handleKeyPress(SDL_Keycode key) {
                 m_cameraManager->setCameraRotation(realIndex, nextRotation);
                 spdlog::info("Camera {} rotation set to {} degrees", realIndex + 1, nextRotation);
             }
+        }
+    }
+    // Numpad keys for 2x2 slot assignment
+    // KP_7 = top-left (slot 0), KP_9 = top-right (slot 1)
+    // KP_1 = bottom-left (slot 2), KP_3 = bottom-right (slot 3)
+    else if (key == SDLK_KP_7 || key == SDLK_KP_9 || key == SDLK_KP_1 || key == SDLK_KP_3) {
+        if (m_currentViewMode == ViewMode::GRID_2X2 && m_cameraGrid && m_cameraGrid->getAvailableCameraCount() > 0) {
+            int slotIndex = -1;
+            const char* slotName = "";
+            if (key == SDLK_KP_7)      { slotIndex = 0; slotName = "top-left"; }
+            else if (key == SDLK_KP_9) { slotIndex = 1; slotName = "top-right"; }
+            else if (key == SDLK_KP_1) { slotIndex = 2; slotName = "bottom-left"; }
+            else if (key == SDLK_KP_3) { slotIndex = 3; slotName = "bottom-right"; }
+            
+            m_cameraGrid->cycle2x2Slot(slotIndex);
+            auto slots = m_cameraGrid->get2x2SlotAssignments();
+            int camNum = slots[slotIndex] + 1;
+            spdlog::info("2x2 {} slot set to Camera {}", slotName, camNum);
+            
+            // Persist
+            SettingsManager::instance().setGrid2x2Slots(slots);
         }
     }
 }

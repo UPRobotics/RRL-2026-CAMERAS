@@ -48,6 +48,30 @@ void CameraGrid::setSelectedCameraIndex(int index) {
     }
 }
 
+void CameraGrid::set2x2SlotAssignments(const std::array<int, 4>& slots) {
+    m_2x2Slots = slots;
+}
+
+void CameraGrid::cycle2x2Slot(int slotIndex) {
+    if (slotIndex < 0 || slotIndex >= 4) return;
+    if (m_availableCameraIndices.empty()) return;
+
+    int currentCam = m_2x2Slots[slotIndex];
+
+    // Find current camera's position in available list
+    int currentPos = -1;
+    for (int i = 0; i < static_cast<int>(m_availableCameraIndices.size()); ++i) {
+        if (m_availableCameraIndices[i] == currentCam) {
+            currentPos = i;
+            break;
+        }
+    }
+
+    // Move to next available camera (wrap around)
+    int nextPos = (currentPos + 1) % static_cast<int>(m_availableCameraIndices.size());
+    m_2x2Slots[slotIndex] = m_availableCameraIndices[nextPos];
+}
+
 void CameraGrid::render(SDL_Renderer* renderer, int x, int y, int width, int height) {
     int activeCameraCount = static_cast<int>(m_availableCameraIndices.size());
     
@@ -63,15 +87,54 @@ void CameraGrid::render(SDL_Renderer* renderer, int x, int y, int width, int hei
         SDL_Rect cameraRect = {x + CAMERA_GAP, y + CAMERA_GAP, 
                               width - CAMERA_GAP * 2, height - CAMERA_GAP * 2};
         renderCameraSlot(renderer, cameraRect, m_selectedRealCameraIndex);
-    } else {
-        // Calculate grid layout
-        int rows, cols;
-        if (m_viewMode == ViewMode::GRID_2X2) {
-            rows = 2;
-            cols = 2;
-        } else {
-            calculateGridLayout(rows, cols);
+    } else if (m_viewMode == ViewMode::GRID_2X2) {
+        // 2x2 grid with slot assignments
+        int rows = 2, cols = 2;
+
+        int totalGapX = CAMERA_GAP * (cols + 1);
+        int totalGapY = CAMERA_GAP * (rows + 1);
+        int baseWidth = (width - totalGapX) / cols;
+        int baseHeight = (height - totalGapY) / rows;
+        int extraWidth = (width - totalGapX) % cols;
+        int extraHeight = (height - totalGapY) % rows;
+
+        std::vector<int> colWidths(cols, baseWidth);
+        for (int i = 0; i < extraWidth; ++i) colWidths[i] += 1;
+        std::vector<int> rowHeights(rows, baseHeight);
+        for (int i = 0; i < extraHeight; ++i) rowHeights[i] += 1;
+
+        // Build the 4-camera list from slot assignments
+        // Slot layout: 0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right
+        int cameraForSlot[4];
+        for (int s = 0; s < 4; ++s) {
+            if (m_2x2Slots[s] >= 0) {
+                cameraForSlot[s] = m_2x2Slots[s];
+            } else if (s < activeCameraCount) {
+                cameraForSlot[s] = m_availableCameraIndices[s];
+            } else {
+                cameraForSlot[s] = -1; // empty slot
+            }
         }
+
+        int slotIdx = 0;
+        int cameraY = y + CAMERA_GAP;
+        for (int row = 0; row < rows; ++row) {
+            int cameraX = x + CAMERA_GAP;
+            for (int col = 0; col < cols; ++col) {
+                SDL_Rect cameraRect = {cameraX, cameraY, colWidths[col], rowHeights[row]};
+                int realCameraIndex = cameraForSlot[slotIdx];
+                if (realCameraIndex >= 0) {
+                    renderCameraSlot(renderer, cameraRect, realCameraIndex);
+                }
+                slotIdx++;
+                cameraX += colWidths[col] + CAMERA_GAP;
+            }
+            cameraY += rowHeights[row] + CAMERA_GAP;
+        }
+    } else {
+        // NxN auto-grid
+        int rows, cols;
+        calculateGridLayout(rows, cols);
 
         // Calculate camera slot dimensions and distribute any leftover pixels to fully fill the area
         int totalGapX = CAMERA_GAP * (cols + 1);

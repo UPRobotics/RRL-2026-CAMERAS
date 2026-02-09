@@ -2,6 +2,7 @@
 
 #include <SDL2/SDL.h>
 #include <vector>
+#include <array>
 #include <functional>
 #include "types.h"
 
@@ -59,6 +60,22 @@ public:
     void setSelectedCameraIndex(int index);
 
     /**
+     * @brief Set the 2x2 slot assignments (slot 0-3 → real camera index)
+     */
+    void set2x2SlotAssignments(const std::array<int, 4>& slots);
+
+    /**
+     * @brief Get the current 2x2 slot assignments
+     */
+    const std::array<int, 4>& get2x2SlotAssignments() const { return m_2x2Slots; }
+
+    /**
+     * @brief Cycle the camera assigned to a 2x2 slot to the next available camera
+     * @param slotIndex 0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right
+     */
+    void cycle2x2Slot(int slotIndex);
+
+    /**
      * @brief Render the camera grid
      */
     void render(SDL_Renderer* renderer, int x, int y, int width, int height);
@@ -94,6 +111,10 @@ private:
     ViewMode m_viewMode;
     int m_selectedCameraIndex; // For fullscreen mode (index into m_availableCameraIndices)
     int m_selectedRealCameraIndex; // Actual camera number
+
+    // 2x2 slot assignments: slot index (0-3) → real camera index (-1 = use default order)
+    // Slot layout: 0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right
+    std::array<int, 4> m_2x2Slots = {-1, -1, -1, -1};
 
     static constexpr int CAMERA_GAP = 1;
     static constexpr int CAMERA_BORDER = 1;

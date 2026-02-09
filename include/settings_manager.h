@@ -3,6 +3,7 @@
 #include <SDL2/SDL.h>
 #include <string>
 #include <map>
+#include <array>
 #include <vector>
 #include <nlohmann/json.hpp>
 #include "types.h"
@@ -80,6 +81,10 @@ public:
     int getCameraRotation(int index) const;
     void setCameraRotation(int index, int rotationDeg, const std::string& filepath = "config/settings.json");
     
+    // 2x2 grid slot assignments
+    const std::array<int, 4>& getGrid2x2Slots() const { return m_grid2x2Slots; }
+    void setGrid2x2Slots(const std::array<int, 4>& slots, const std::string& filepath = "config/settings.json");
+    
 private:
     SettingsManager() = default;
     ~SettingsManager() = default;
@@ -112,6 +117,9 @@ private:
     // Camera settings
     std::vector<CameraConfig> m_cameraConfigs;
     StreamingSettings m_streamingSettings;
+    
+    // 2x2 grid slot assignments: slot (0-3) -> real camera index (-1 = default)
+    std::array<int, 4> m_grid2x2Slots = {-1, -1, -1, -1};
     
 };
 

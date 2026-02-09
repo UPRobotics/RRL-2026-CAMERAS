@@ -32,6 +32,11 @@ SettingsManager& SettingsManager::instance() {
         save(filepath);
     }
 
+    void SettingsManager::setGrid2x2Slots(const std::array<int, 4>& slots, const std::string& filepath) {
+        m_grid2x2Slots = slots;
+        save(filepath);
+    }
+
 bool SettingsManager::load(const std::string& filepath) {
     try {
         std::ifstream file(filepath);
@@ -108,6 +113,18 @@ bool SettingsManager::load(const std::string& filepath) {
             m_streamingSettings.frame_timeout_ms = streaming.value("frame_timeout_ms", 5000);
         }
         
+        // Load 2x2 grid slot assignments
+        if (j.contains("grid_2x2") && j["grid_2x2"].contains("slots")) {
+            auto& slots = j["grid_2x2"]["slots"];
+            if (slots.is_array() && slots.size() == 4) {
+                for (int i = 0; i < 4; ++i) {
+                    m_grid2x2Slots[i] = slots[i].get<int>();
+                }
+                spdlog::info("Loaded 2x2 grid slots: [{}, {}, {}, {}]",
+                    m_grid2x2Slots[0], m_grid2x2Slots[1], m_grid2x2Slots[2], m_grid2x2Slots[3]);
+            }
+        }
+        
         spdlog::info("Settings loaded from {}", filepath);
         return true;
     }
@@ -174,6 +191,11 @@ bool SettingsManager::save(const std::string& filepath) {
             {"last_console_y", m_lastConsoleY},
             {"last_console_width", m_lastConsoleWidth},
             {"last_console_height", m_lastConsoleHeight}
+        };
+        
+        // Save 2x2 grid slot assignments
+        j["grid_2x2"] = {
+            {"slots", {m_grid2x2Slots[0], m_grid2x2Slots[1], m_grid2x2Slots[2], m_grid2x2Slots[3]}}
         };
         
         std::ofstream file(filepath);
